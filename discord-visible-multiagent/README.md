@@ -190,10 +190,16 @@ Current package style:
 - no `scripts/`
 - optimized for policy/workflow clarity first
 
+## Examples
+
+See `examples/` for concrete usage patterns:
+- `examples/EXAMPLE-01-skill-draft-review.md` — normal visible multi-round draft + HQ revision loop
+- `examples/EXAMPLE-02-thread-fallback.md` — thread visibility anomaly handled via `sessions_send` fallback
+
 ## Suggested next steps
 
 Possible future upgrades:
 - add Chinese/English dual README variants
-- add sample transcripts
+- add more sample transcripts
 - add decision trees for HQ acceptance
 - add optional helper scripts after the workflow is fully stable
