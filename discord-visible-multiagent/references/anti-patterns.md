@@ -1,39 +1,59 @@
-# Required Anti-Patterns (v3 — Must Avoid)
+# Required Anti-Patterns (v4 — Must Avoid)
 
-## Thread & Round Naming
-1. **Skip thread subject** or use wrong format — must follow `<任务ID>-<任务名>-<子任务阶段>`.
-2. **Omit `[Rx]` round tag** on messages — round must be visible on every thread message.
-3. **Allow R16 or higher** — R15 hard cap is absolute under all circumstances.
+Canonical source: `/home/ubuntu/.openclaw/shared/artifacts/discord-visible-multiagent/references/anti-patterns.md`
+Workspace supplements:
+- `docs/workflows/task-state-discord-integration.md`
+- `docs/workflows/task-state-mvp-v1.md`
+- `docs/workflows/runtime-send-writeback.md`
 
-## Quality & Acceptance
-4. **Treat executor "完成" as closing signal** — only HQ `验收通过` closes the task.
-5. **Accept output without verifying** goal attainment and output contract compliance.
-6. **Skip quality challenge** when output is substandard — must `[R+1]` with specific revision request.
-7. **Advance to next round without reading actual thread result** — three prerequisites must all be met.
+## Workflow Gate Failures
+1. **Skip the skill-first gate** for formal Discord multi-agent collaboration.
+2. **Classify a formal multi-role task by content type first** (search/coding/debug) instead of first deciding whether it must enter the collaboration workflow.
+3. **Skip task creation** for a formal tracked task before visible dispatch.
+4. **Skip visible dispatch** and hand off to executor first.
+5. **Treat payload generation as real execution** — helper output is not the same as real send.
+6. **Treat docs/workflows helper docs as a second source of truth** instead of following the skill + canonical workflow.
 
-## Round Governance
-8. **Let executor increment rounds independently** — HQ is sole authority on round counter.
-9. **Exceed user-specified round cap** without escalation.
-10. **Forget to increment or miscount rounds** — round errors break the cap mechanism.
+## Thread & Round Governance
+7. **Skip thread subject** or use the wrong format.
+8. **Omit `[R<n>]` round tag** on visible thread instructions/results.
+9. **Allow R16 or higher** — R15 hard cap is absolute unless the user explicitly changes it in advance.
+10. **Let executor increment rounds independently** — HQ is sole authority on round counter.
+11. **Forget to increment or miscount rounds** — round errors break the cap mechanism.
 
-## Dispatch & Context
-11. **Dispatch vague tasks** without TASK-ID, objective, constraints, or output contract.
-12. **Mix unrelated tasks in one thread** without TASK-ID separation.
-13. **Assume cross-channel implicit memory** is shared automatically.
-14. **Skip HQ sync-back** after executor completion or cap hit.
+## Dispatch & Handoff Errors
+12. **Dispatch vague tasks** without `task_id`, objective, constraints, or output contract.
+13. **Send to executor before thread + visible `[R1]` are ready**.
+14. **Fail to write back `thread_id` / `hq_message_id` / ACTIVE** after real dispatch.
+15. **Bypass the formal handoff gate** by constructing executor handoff ad hoc instead of using readiness-checked helper flow.
+16. **Assume cross-channel implicit memory** is automatically shared.
+17. **Mix unrelated tasks in one thread** without clear `task_id` separation.
 
-## sessions_send / Thread Fallback
-15. **Block task progress waiting for thread subject confirmation** — use sessions_send fallback immediately.
-16. **Treat sessions_send timeout as delivery failure** — timeout ≠ actual failure; verify delivery.
-17. **Use backticks around dynamic values** in shell commands — risk of command injection.
+## Review & Acceptance Errors
+18. **Treat executor "完成" as closing signal** — only HQ acceptance closes the task.
+19. **Accept output without verifying** goal attainment and output-contract compliance.
+20. **Advance to next round without reading actual previous-round result**.
+21. **Skip quality challenge** when output is substandard.
+22. **Let the task enter a black hole with no HQ-visible sync-back**.
 
-## Thread Posting (v3 Specific)
-18. **没有用显式 CLI 命令发 thread 消息**，只在 session 里写结果 — Discord session 不自动同步 thread 内容，必须用 `openclaw message send --target "<THREAD-ID>"` 显式发帖。
-19. **Thread target 格式错误**（如加 `thread:` 前缀）— Discord target 直接用 thread ID，不加任何前缀。
+## Runtime Boundary Errors
+23. **Assume shell helpers are the authoritative real-send layer**.
+24. **Assume helper-generated reply/target hints guarantee direct-send capability**.
+25. **Pretend HQ sync is fully automated** when it is actually runtime-send + writeback.
+26. **Pretend executor reminder is complete without actual `sessions_send`**.
+27. **Send real messages but do not write them back to DB**.
+28. **Prefer a stale abstract state ladder over the live SQLite-backed task-state flow**.
 
-## Anti-Patterns from v1/v2 Still Valid
-20. **Dump full raw process logs** to HQ instead of distilled outcome.
-21. **Expand scope to scripts/** in references-only version.
-22. **Force one rigid REVIEW final format.**
-23. **Treat "visible" as "automatically synchronized."**
-24. **Treat HQ notification as thread result** — must read thread to confirm.
+## sessions_send / Delivery Errors
+29. **Treat `sessions_send` timeout as delivery failure** — verify actual delivery.
+30. **Treat internal notify as a substitute for visible thread result**.
+31. **Block task progress forever waiting for perfect thread visibility** when fallback logic is available.
+
+## Shell Safety Errors
+32. **Use backticks around dynamic values** in shell commands.
+33. **Assume dynamic IDs/values are safe to interpolate without care**.
+
+## Reporting Errors
+34. **Dump raw process logs** to HQ instead of distilled status.
+35. **Fail to preserve traceability** (`task_id`, round, executor, visible anchor, HQ decision).
+36. **Report progress based on prompt/config text only** instead of actual observed behavior.

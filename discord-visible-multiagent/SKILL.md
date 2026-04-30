@@ -1,220 +1,325 @@
 ---
 name: discord-visible-multiagent
-description: Coordinate visible multi-agent collaboration across Discord channels in OpenClaw, including HQ dispatch, executor-channel multi-turn execution (15-round hard cap), thread-based naming, per-message round labeling, HQ quality acceptance, and sessions_send fallback. Use when the user asks to run or design cross-channel workflows, handoff tasks from HQ to execution channels, continue follow-ups in-channel over multiple turns, or report distilled outcomes back to HQ. Do not use when the request is about underlying OpenClaw routing, Discord permissions, or single-agent solo tasks.
+description: Coordinate visible multi-agent collaboration across Discord channels in OpenClaw, including formal HQ dispatch, executor-channel multi-turn execution (15-round hard cap), task-id-first tracking, payload-first runtime-send, and send-after-writeback discipline. Use when the user asks to hand off work from HQ to an execution channel, open a Discord thread for a tracked task, continue the next round in an existing thread, review or accept executor output, scan due tasks, generate HQ sync/reminder actions, or design/audit a visible cross-agent workflow. Typical trigger phrasings include “派给夜兰/艾尔海森”, “开个 thread 跑这个任务”, “继续这个 thread 的下一轮”, “给 executor 发 reminder”, “给 HQ 发 sync”, or “审一下这个多 agent 协同 skill / workflow”. Do not use when the request is mainly about Discord permissions, low-level OpenClaw routing internals, bot/plugin development, or single-agent solo execution.
 ---
 
-# discord-visible-multiagent (v3)
+# discord-visible-multiagent (workspace skill)
 
-## Core Objective
-Implement a practical, reviewable collaboration workflow for Discord + OpenClaw where:
-- HQ channel handles command, routing, round governance, and quality acceptance.
-- Executor channels handle focused delivery with multi-turn continuity.
-- Cross-channel coordination is explicit, visible, and traceable.
-- Thread naming, round labels, and sessions_send fallback are first-class concerns.
+This workspace skill is the **formal execution entry** for Discord visible multi-agent collaboration in this workspace.
 
-## v3 Naming Conventions
+## Canonical basis
+- Workflow canonical source: `/home/ubuntu/.openclaw/shared/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
+- Skill source artifacts: `/home/ubuntu/.openclaw/shared/artifacts/discord-visible-multiagent/`
+- Workspace workflow mirror: `docs/workflows/discord-true-multiround-workflow.md`
 
-### Thread subject format
-```
-<任务ID>-<任务名>-<子任务阶段>
-```
-Examples:
-- `SKILL-001-正式Skill产出-草案阶段`
-- `TASK-LOGO-品牌重塑-初稿交付`
-- `TASK-OSS-开源方案-技术评估`
+Treat the canonical shared workflow as the top rule source.
+Treat this skill as the **primary execution entry and consolidation layer** for this workspace.
+This workspace skill is the execution-layer entry that adds the **current machine's verified task-state/runtime integration rules**.
 
-Round number (R1/R2...) is NOT pre-determined; it emerges dynamically in the interaction.
+## Source-of-truth split
+Use this split strictly to avoid drift, conflict, and duplication:
 
-### Per-message round label
-Every thread message must carry a round tag:
-```
-[R1] [R2] [R3] ... [R15]
-```
-- HQ assigns round on each dispatch; executor echoes it back.
-- HQ is the sole authority on round counter; executor must not self-increment.
+### 1. Canonical shared workflow = collaboration law
+The canonical shared workflow defines:
+- the true multi-round collaboration model
+- HQ/executor role boundaries
+- round governance
+- visible-thread-first rules
+- acceptance / cap / close behavior
 
-## Operating Rules (v3)
-- Treat each Discord channel session as context-local.
-- Continue follow-ups in the same execution channel.
-- **15 rounds hard cap**: R15 is the absolute maximum. R16 is forbidden.
-- Thread visibility is **Best Effort**; use sessions_send result as fallback on anomaly.
-- Keep REVIEW flexible; adapt to task type and risk level.
-- Do not create scripts (references-only scope).
+If a collaboration rule is already defined there, do not redefine it differently elsewhere.
 
-## Round Policy (v3)
-- Default max rounds: **R15**
-- **Hard cap**: after R15, executor MUST close; no R16 under any circumstances.
-- User override examples:
-  - "本任务上限 8 轮" → R8 cap
-  - "允许 20 轮深挖" → R20 cap (requires explicit approval)
-- Apply user-provided limit as highest priority.
+### 2. This skill = execution gate for this workspace
+This skill defines:
+- when the workflow must trigger
+- what helper chain must be used on this machine
+- what runtime-send/writeback boundaries are real
+- what hard gates are required before executor handoff
+- how to route common HQ operations without re-deriving the process each time
 
-## HQ Quality Acceptance (v3) — Core Responsibility
-**Executor saying "完成" is NOT a closing condition.**
+For day-to-day execution in this workspace, prefer this skill as the direct operating entry.
 
-HQ must:
-1. Verify task goal was actually achieved.
-2. Verify output quality meets the stated output contract.
-3. If insufficient: raise specific question + revision request, then `[R+1]`.
-4. Loop until HQ formally accepts.
+### 3. docs/workflows = supporting implementation notes
+`docs/workflows/` is supporting detail only.
+Use it for:
+- helper-specific SOPs
+- implementation notes
+- runtime supplements
+- machine-verified operational details
 
-Acceptance signals:
-- Goal met? Evidence present?
-- Output matches output contract?
-- Risks identified and bounded?
-- Only HQ `验收通过` = valid close. "完成" from executor ≠ acceptance.
+Docs must not compete with the skill.
+If doc text and skill text conflict, fix the doc or fix the skill so they match again.
 
-## sessions_send Fallback (v3)
-Thread visibility via thread subject update = Best Effort.
-If thread subject update fails or is unavailable:
-1. Use sessions_send result as continuation context.
-2. Carry TASK-ID + round tag in message body.
-3. Post thread说明: `⚠️ 未收到 thread 中的执行角色消息，但已通过 sessions_send 收到结果...`
-4. Proceed with task; do not block on thread naming.
+## Bundled scripts ownership
+For this workspace, the maintained collaboration workflow scripts live under this skill's `scripts/` directory.
+Use the role guides and helper-routing references for the detailed helper map.
 
-## Real Multi-Round Collaboration (v3) — Core Distinction
-This is NOT scripted relay. Each round is generated live by HQ based on actual thread results.
+## What this skill now governs
+This skill is not only about thread/round etiquette anymore. It governs the combined workflow at the execution-gate level:
 
-### Formal chain
-1. HQ creates thread (name: `任务ID-任务名-子任务阶段`)
-2. HQ posts `[R1]` dispatch in thread (public)
-3. HQ sends current-round instruction to executor via sessions_send
-4. Executor delivers current-round result in thread
-5. Executor notifies HQ explicitly
-6. HQ reads actual thread result
-7. HQ generates next-round instruction based on real result
-8. HQ posts `[R<n+1>]` in thread (public)
-9. HQ sends current-round to executor
-10. Loop until DONE / CAPPED / BLOCKED / FAILED
+1. **skill-first**: hit this skill before running cross-agent Discord collaboration
+2. **task-id-first**: formal tasks must be created in SQLite before visible dispatch
+3. **visible-dispatch-first**: thread + visible `[R1]` must exist before executor handoff
+4. **payload-first**: local helpers generate payload / intent / DB state, not fake full automation
+5. **runtime-send**: real Discord send / `sessions_send` are performed by the current runtime/session
+6. **writeback-required**: after real send, DB must be updated so the state layer remains truthful
 
-### Three hard prerequisites before next round
-HQ may only advance to next round when ALL THREE are true:
-- Previous round result is visible in thread
-- HQ has received executor's explicit notification
-- HQ has read the actual result and generated a new instruction
+Detailed helper selection and step-by-step variants belong in the references files.
 
-## Workflow (v3)
+## Collaboration-first classification
+When a request may involve named executors, cross-session coordination, HQ tracking, visible collaboration, or multi-role handoff, classify it as a collaboration task first.
 
-### Phase 0: Receive Task
-- Read task content.
-- Determine dispatch target (if not user-specified):
-  - Analyze task type and difficulty
-  - Choose appropriate executor
-  - Identify target channel ID
+If the task has both:
+- a content-layer attribute (research/search, coding, debugging, etc.), and
+- a formal collaboration attribute,
 
-### Phase 1: Create Thread and Dispatch
-```bash
-openclaw message thread create \
-  --account default \
-  --channel discord \
-  --target "channel:<目标执行频道ID>" \
-  --thread-name "<任务ID>-<任务名>-<子任务阶段>" \
-  --message "HQ 派单：<任务描述>" \
-  --json
-```
-Then post `[R1]` task dispatch in thread and sessions_send to executor.
+then this skill is the correct top-level entry gate. Content-layer skills may still be used, but only after the collaboration path has been chosen correctly.
 
-### Phase 2: Executor Executes
-- Receive task via sessions_send.
-- Confirm receipt in thread.
-- Execute task.
-- Post result in thread (required).
-- Notify HQ explicitly.
+## Quick route first
+Pick the lightest correct path before reading everything.
 
-### Phase 3: Receive Completion
-- Check provenance. If `kind == "inter_session"`, enter Phase 3.2.
-- Attempt to read thread result.
-- If thread has result → use it.
-- If thread empty → use sessions_send result as fallback, post thread说明.
+Before choosing a content-layer route, do one classification check first:
+- Is this actually a multi-role / HQ-tracked / cross-session task?
+- Is a named executor being asked to take the work?
+- Does the task need visible coordination, sync-back, or acceptance?
 
-### Phase 4: HQ Acceptance Check
-- If executor says "完成":
-  - Review artifact quality (must personally verify)
-  - Acceptable → Phase 5
-  - Not acceptable → raise specific issue + revision, `[R+1]`, loop back
-- Check round counter: `current_round >= 15` → forced close
+If yes, enter this skill first even if another content-layer skill also matches.
 
-### Phase 5: Close
-- Post acceptance/rejection in thread.
-- Report to HQ channel.
+### Role-first routes
+- **HQ opening / dispatching / handing off / reviewing / closing** → read `references/operator-cheat-sheet.md` first, then `references/hq-workflow.md` if needed
+- **Executor receiving formal handoff / posting result / notifying HQ** → read `references/operator-cheat-sheet.md` first, then `references/executor-return-contract.md`, then `references/executor-workflow.md` if needed
 
-## Provenance Check (Required on inter_session messages)
-```python
-if message.provenance and message.provenance.kind == "inter_session":
-    source_agent = extract_agent_from(message.provenance.sourceSessionKey)
-    thread_id = extract_thread_id_from(message.content)
-    # Must enter Phase 3.2 to confirm result
-else:
-    # Normal user message; process normally
-```
+### Operator surface rule
+Prefer the smallest possible operator surface:
+- HQ primary entrypoints should stay concentrated in `hq-formal-collab-gate.sh`, `hq-visible-dispatch-run.sh`, `hq-handoff-send-plan.sh`, and `hq-followup-close-helper.sh`
+- executor primary preflight should stay concentrated in `executor-ownership-gate.sh`
+- internal validation should be embedded in those helpers when possible instead of spawning extra standalone scripts
 
-## Round Counter Maintenance
-- HQ must maintain round counter.
-- Increment strictly: `R1 → R2 → R3...`
-- Check `current_round < 15` before every dispatch.
-- Never forget or miscount — round errors break the cap mechanism.
+### Task-shape routes
+- **New formal tracked task** → read `references/operator-cheat-sheet.md`, then `references/hq-workflow.md` only if needed
+- **Existing thread / next-round advance / acceptance** → read `references/operator-cheat-sheet.md`, then `references/review-guide.md` only if needed
+- **Due-task / HQ sync / executor reminder** → read `references/helper-routing.md`, then `references/runtime-send-contracts.md`, then `references/hq-workflow.md`
+- **Workflow design / audit / modernization** → read `references/workflow.md`, then `references/hq-workflow.md`, then `references/executor-workflow.md`, then `references/runtime-send-contracts.md`, then `references/anti-patterns.md`
 
-## Workflow Diagram
-```
-用户派单
-    ↓
-Phase 0: 接收任务，判断派发目标
-    ↓
-Phase 1.1: 创建 thread（名称格式: 任务ID-任务名-子任务阶段）
-    ↓
-Phase 1.2: HQ 在 thread 发 [R1] 任务派单
-    ↓
-Phase 1.3: sessions_send 给执行角色
-    ↓
-Phase 2: 执行角色执行
-    ↓
-Phase 3.1: 收到消息 → 检查 provenance
-    ↓
-    ├─ inter_session ─→ Phase 3.2 尝试获取 thread 结果
-    │                   ├─ thread 有结果 → 使用 thread 结果
-    │                   └─ thread 无结果 → sessions_send 兜底 + 发说明
-    │                      ↓
-    │                   Phase 4.1: 验收产出质量
-    │                      ↓
-    │                   ├─ 质量达标 → Phase 5 收口
-    │                   └─ 质量不达标
-    │                      轮次 +1
-    │                      [R2] 质量审核反馈 → 执行角色修改
-    │                      （循环直到达标）
-    │
-    ├─ 不是 inter_session ─→ 正常处理
-    │
-Phase 4.2: 检查轮次上限（>=15 强制收口）
-    ↓
-Phase 5: 收口：thread 确认 + 回 HQ 汇报
-```
+## Load order
+If no narrower route above is obvious, default to:
+1. `references/operator-cheat-sheet.md`
+2. the relevant role guide (`references/hq-workflow.md` or `references/executor-workflow.md`)
+3. `references/executor-return-contract.md` when executor result / notify / return semantics are involved
+4. `references/runtime-send-contracts.md` and `references/helper-routing.md` as needed
+5. other references only when the task shape truly requires them
 
-## State Machine
-- `NEW` → `DISPATCHED` → `IN_PROGRESS` → `DISTILLED` → `ACCEPTED` → `CLOSED`
-- Branches: `BLOCKED`, `REROUTED`, `CAPPED` (hit R15 without closure)
+### Runtime truth regression checks
+When you change helper behavior, task-state gates, notify validation, send-plan validation, ownership rules, or visible-contract payload construction, run the maintained regression checks documented in `references/helper-routing.md`.
+Run them serially, not in parallel. They share the same SQLite task-state store and parallel runs can produce lock-noise false negatives.
 
-## What to Load from references/
-- `references/workflow.md`: v3 end-to-end flow, state transitions, round governance.
-- `references/templates.md`: HQ dispatch template, executor prompt, HQ report, HQ acceptance signal, thread creation commands.
-- `references/boundaries.md`: scope, non-goals, handoff safety.
-- `references/anti-patterns.md`: v3 anti-pattern checklist (updated).
-- `references/review-guide.md`: HQ acceptance decision signals, capped close, R12 crisis warning.
+## Core operating rules
+- HQ is the sole authority for dispatch, round counter, acceptance, and final close.
+- Executor completion is **not** acceptance; HQ must personally verify quality.
+- Use explicit thread naming and `[R<n>]` round labels on every visible thread instruction/result.
+- Enforce the hard round cap. Never allow R16 unless the user explicitly changes the cap in advance.
+- Do not assume implicit cross-channel memory.
+- Keep HQ sync-back visible and distilled.
+- If a real task is being coordinated, preserve task-state truth: `task_id`, `thread_id`, `hq_message_id`, round, executor, current status.
+- For each round, the thread-visible HQ instruction is the authoritative contract anchor. Formal handoff may restate or operationalize that round, but must not tighten, narrow, or secretly specialize the output contract, acceptance criteria, or executor-visible requirements.
+- Formal handoff must not introduce any executor-visible requirement that is absent from the thread-visible current-round instruction.
+- For dynamic Discord/thread text, do not use shell-inline backticks or unsafe command substitution. Use safe escaping or file/stdin-based input so runtime-visible content cannot be corrupted by the shell.
+- There is exactly one formal executor return protocol: executor confirms anchors, passes ownership gate, posts the current-round result in the task thread first, performs short internal confirmation, then posts the fixed HQ notify shape into the same task thread using the executor-bound account, and returns `NO_REPLY` as the executor session final text. Do not send executor notify to the executor main channel or `#hq-command`; `sessions_send` is only the formal handoff transport, not the visible notify surface. Treat transport variants as implementation details, not alternate workflows; use `references/executor-return-contract.md` as the authority.
 
-## Output Contract
-When triggered for execution, include:
-- TASK-ID and thread subject
-- Round label on every message: `[R<n>]`
-- Round policy in use (default/override + hard cap status)
-- Channel routing (HQ → executor → HQ)
-- HQ acceptance decision (not just executor "完成")
-- Distilled final deliverable for HQ routing
+## Mandatory execution model (new hard rule)
+For this workspace, the correct execution model is:
 
-## Constraints
-- Do not treat multi-channel as shared implicit memory.
-- Do not skip HQ sync-back after executor completion.
-- Do not force one fixed REVIEW template.
-- Do not create scripts (references-only scope).
-- **Do NOT allow R16. Hard cap is absolute.**
-- Do not accept executor "完成" as final closing signal.
-- Do not advance to next round without reading actual thread result.
-- Do not use backticks around dynamic values in shell commands.
+> **payload-first + runtime-send + writeback**
+
+Meaning:
+- shell/helpers are responsible for SQLite state, task registration, payload generation, draft generation, and runtime intent generation;
+- the current assistant/runtime session is responsible for real sending;
+- after any real send, the action must be written back to `tasks.db` when applicable.
+
+Do **not** revert to the old assumption that shell helpers or CLI snippets automatically own the whole dispatch/sync/reminder chain.
+
+### G. Capability-gap fallback and provenance (hard rule)
+If the executor session does **not** have native/direct ability to post into the target thread, do **not** let the executor invent its own `exec`, shell, or `openclaw` CLI bypass.
+A fallback path is allowed only when HQ/skill explicitly provides a **single sanctioned assisted-post / standard send path** in the formal handoff.
+
+#### Native/direct vs standard send path
+In this workspace, `first-class / direct-post ability` remains a **descriptive distinction**, not the hard validity gate for workflow continuation.
+
+Practical distinction:
+- if you remove `exec`, shell, and CLI bypasses, and the executor can still directly post to the target thread, that is native/direct ability
+- otherwise it is **not** native/direct ability; it is at most assisted/fallback or standard CLI/runtime posting
+
+#### Hard validity gate
+The real workflow gate is:
+- the message is sent by the **correct actor** for that step, and
+- the actor uses a workflow-recognized **standard send path**
+
+That means:
+- executor-result messages must be sent by the assigned executor
+- HQ or another executor must not send in their place
+- allowed standard send paths may include native/direct messaging paths, `openclaw message send`, and `openclaw message thread reply` when appropriate
+
+#### Provenance rule
+Do not collapse these into one bucket:
+- **native/direct path** = executor independently posted in thread through a native messaging path
+- **sanctioned assisted-post / standard CLI path** = executor lacks native/direct ability, but the send is still performed by the correct executor through a skill-recognized standard path
+
+Instead when capability is missing:
+- executor must either use the HQ-provided sanctioned assisted-post / standard send path, or explicitly report `BLOCKED: cannot_post_to_thread`
+- HQ/runtime may perform the real thread send only where the workflow explicitly assigns that step to HQ rather than the executor
+- provenance must remain visible/truthful:
+  - keep executor text separate from HQ acceptance text
+  - preserve provenance in task notes / status updates
+  - do not pretend the executor used native/direct capability when they actually used a sanctioned assisted/standard path
+
+This is now a workspace execution rule, not an optional convention.
+
+### A. Dispatch setup + formal collaboration gate
+Primary maintained entrypoints:
+- `skills/discord-visible-multiagent/scripts/hq-formal-collab-gate.sh`
+- `skills/discord-visible-multiagent/scripts/hq-visible-dispatch-run.sh`
+
+Supporting state helpers remain under `shared/task/state/`.
+Detailed helper selection and outputs are documented in `references/helper-routing.md`.
+
+### B. Due-task scanning
+Use the due-task helpers documented in `references/helper-routing.md`.
+The skill-level rule is that due-task findings, reminder generation, and HQ sync all stay inside the task-state-backed workflow instead of ad hoc follow-up.
+
+### C. HQ sync draft generation
+HQ sync remains payload-first + runtime-send + writeback.
+Use the helper-routing and role guides for the concrete helper chain.
+
+### D. Executor reminder generation
+Executor reminder generation remains part of the tracked task-state workflow.
+Use the helper-routing reference for the maintained helper path and writeback rule.
+
+### D.1 sessions_send selector hard gate (critical)
+When a helper or DB record has already resolved an exact `executor_session_key`, that key becomes the only allowed logical selector for the runtime handoff/reminder send.
+
+Hard rules:
+- `label` is not a free-form note field, not a tracing tag, and not a comment slot
+- do not pass both `sessionKey` and any non-whitespace `label`
+- when exact `executor_session_key` is available, do not substitute it with label-based targeting
+- do not invent placeholder labels like `formal-handoff-r1`
+- do not copy the same session identifier into both fields
+- for the current verified runtime send shape, the only allowed `label` value is a single whitespace placeholder: `" "`
+- for formal handoff/reminder, do not handcraft `sessions_send`; use the helper-produced exact runtime shape only
+- before any live formal handoff send, use `scripts/hq-handoff-send-plan.sh` as the single validated entrypoint
+- after a real successful formal handoff send, write back `executor_handoff`
+
+Required behavior:
+- prefer the exact resolved selector path only
+- prefer a helper-produced tool-call shape that uses `sessionKey` plus the verified whitespace-label placeholder
+- if the current runtime/tool surface rejects that exact shape, stop and mark the step blocked as a runtime/tooling boundary issue
+- do not "try a few combinations" interactively at send time
+- treat `references/runtime-send-contracts.md` as the machine-level authority for exact send shapes
+
+This is a hard workflow gate because repeated selector misuse creates false negatives that look like collaboration failures but are actually HQ-side calling errors.
+
+### E. Runtime-send writeback
+Real `hq_sync`, `executor_reminder`, and `executor_handoff` sends must be written back so state/history stays truthful.
+Use the concrete writeback helper path documented in `references/helper-routing.md`.
+
+### F. Handoff readiness + formal executor handoff
+Maintained entrypoints:
+- `skills/discord-visible-multiagent/scripts/hq-collab-handoff-ready.sh`
+- `skills/discord-visible-multiagent/scripts/hq-executor-handoff-helper.sh`
+- `skills/discord-visible-multiagent/scripts/hq-handoff-send-plan.sh`
+
+Detailed helper sequencing and writeback steps are documented in `references/helper-routing.md`.
+
+### G. HQ follow-up / close decision helper
+Maintained entrypoint:
+- `skills/discord-visible-multiagent/scripts/hq-followup-close-helper.sh`
+
+Use the role guides and review guide for detailed acceptance / next-round / close behavior.
+
+#### Core rule
+The message for a given execution step must be sent by the **correct actor** for that step:
+- executor-step result → sent by the assigned executor
+- HQ dispatch / HQ next-round instruction / HQ acceptance → sent by HQ
+
+HQ or another executor must **not** substitute for the assigned executor when the workflow expects the executor to send.
+
+#### Allowed standard send paths
+For executor thread delivery in this workspace, the standard allowed paths may include:
+- workflow-recognized native messaging/direct-post paths, when available
+- `openclaw message send`
+- `openclaw message thread reply` when appropriate for the target surface
+
+These are acceptable only when the send action is performed by the correct actor/session for that step.
+
+#### What remains forbidden
+The problem is no longer “CLI exists”, but “uncontrolled path / wrong sender / untraceable bypass”.
+So the workflow must still forbid:
+- ad hoc, self-invented shell/CLI bypasses not explicitly sanctioned by the skill/helper
+- HQ sending a message that should have been sent by the executor
+- one executor sending in place of another executor
+- provenance-obscuring wording that falsely claims a different sender performed the action
+
+#### Direct post vs standard CLI path
+`direct-post` may still be used as a descriptive distinction, but it is **not** the hard gate for workflow validity.
+The hard gate is:
+- did the correct actor send the message, and
+- did they use a skill-recognized standard path?
+
+If yes, the workflow may continue.
+
+This is now the workspace execution rule.
+
+## Required execution sequence for formal tasks
+### Dispatch
+1. enter the formal collaboration gate first for tracked tasks
+2. create task first and obtain `task_id` / `thread_name`
+3. run `skills/discord-visible-multiagent/scripts/hq-visible-dispatch-run.sh` to create thread + post visible `[R1]` + write back `ACTIVE`
+4. run handoff readiness check
+5. only then obtain/send formal executor handoff payload
+6. executor-round messages must be sent by the executor itself through a skill-recognized standard path; HQ may not substitute for the executor
+
+### Next-round advance
+Only continue when all three are true:
+1. previous-round visible result exists in thread
+2. HQ received explicit notify
+3. HQ has read the real result and generated the next instruction from it
+
+### Reminder / sync path
+1. due-task checker identifies due task
+2. helper generates sync/reminder payload
+3. runtime performs real send
+4. send action is written back
+
+## State model guidance
+Prefer the live `tasks.db` state model and maintained helper docs over stale abstract ladders.
+Concrete state details remain available through the task-state references and helper docs.
+
+## What belongs in the skill vs docs
+### Skill = execution gate and primary workspace authority
+Keep in the skill:
+- collaboration hard rules
+- current machine capability boundaries
+- mandatory execution model
+- authoritative helper-chain order for this workspace
+- the hard gate that formal executor handoff is invalid before visible writeback
+
+### References / docs = detailed supplement only
+Use references and workflow docs for:
+- detailed helper selection
+- SOP expansion
+- long examples and templates
+- implementation notes
+
+They expand the skill, but must not replace it as execution authority.
+
+## Boundary note
+This skill governs collaboration workflow plus the verified task-state/runtime execution boundary for this workspace.
+It does **not** govern:
+- Discord platform deployment/permissions
+- low-level OpenClaw internals
+- unrelated single-agent tasks
+
+## Sync note
+If drift is found:
+1. trust the canonical shared workflow first
+2. then trust this skill as the workspace execution gate
+3. then update workspace docs so supplements match the maintained execution path
