@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-STATE_DIR="$WORKSPACE_ROOT/shared/task/state"
+WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+STATE_DIR="${TASK_STATE_DIR:-$WORKSPACE_ROOT/shared/task/state}"
 DISPATCH_HELPER="$STATE_DIR/hq-dispatch-helper.sh"
 DB_PATH="${TASK_DB_PATH:-$STATE_DIR/tasks.db}"
 
@@ -24,7 +24,7 @@ Usage:
     [--round-result-body "当前轮实际落地内容"] \
     [--phase "执行阶段"] \
     [--priority normal] \
-    [--hq-channel "channel:1483658047443177512"]
+    [--hq-channel "channel:<HQ_CHANNEL_ID>"]
 
 Purpose:
   Formal collaboration entry gate for HQ tasks.
@@ -63,7 +63,7 @@ ROUND_RESULT_CONTRACT=""
 ROUND_RESULT_BODY=""
 PHASE="执行阶段"
 PRIORITY="normal"
-HQ_CHANNEL="channel:1483658047443177512"
+HQ_CHANNEL="${OPENCLAW_HQ_CHANNEL:-channel:<HQ_CHANNEL_ID>}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -89,6 +89,12 @@ done
 for v in TITLE SLUG TARGET_CHANNEL_ID EXECUTOR_AGENT EXECUTOR_SESSION_KEY TASK_GOAL BASELINE OUTPUT_CONTRACT; do
   [[ -n "${!v}" ]] || { echo "Missing required arg: $v" >&2; usage; exit 1; }
 done
+
+if [[ "$HQ_CHANNEL" == *"<HQ_CHANNEL_ID>"* ]]; then
+  echo "Missing --hq-channel or OPENCLAW_HQ_CHANNEL; default placeholder is not sendable" >&2
+  usage
+  exit 1
+fi
 
 require_cmd python3
 require_cmd sqlite3

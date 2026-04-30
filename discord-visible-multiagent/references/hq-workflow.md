@@ -1,16 +1,16 @@
 # HQ Workflow (v1) — Discord Visible Multi-Agent HQ Path
 
 Canonical collaboration law:
-- `/home/ubuntu/.openclaw/shared/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
+- `<OPENCLAW_SHARED>/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
 
 Workspace execution gate:
-- `/home/ubuntu/.openclaw/workspace/skills/discord-visible-multiagent/SKILL.md`
+- `<WORKSPACE>/skills/discord-visible-multiagent/SKILL.md`
 
 Runtime send contract authority:
-- `/home/ubuntu/.openclaw/workspace/skills/discord-visible-multiagent/references/runtime-send-contracts.md`
+- `<WORKSPACE>/skills/discord-visible-multiagent/references/runtime-send-contracts.md`
 
 Single executor return contract:
-- `/home/ubuntu/.openclaw/workspace/skills/discord-visible-multiagent/references/executor-return-contract.md`
+- `<WORKSPACE>/skills/discord-visible-multiagent/references/executor-return-contract.md`
 
 This file is HQ-only.
 It defines what **HQ / paimon-chief** must do, and what HQ must never delegate, fake, or silently skip.

@@ -2,9 +2,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+STATE_DIR="${TASK_STATE_DIR:-$WORKSPACE_ROOT/shared/task/state}"
 HANDOFF_HELPER="$SCRIPT_DIR/hq-executor-handoff-helper.sh"
 VALIDATOR="$SCRIPT_DIR/validate_handoff_send_plan.py"
-RECORD_SEND="$SCRIPT_DIR/../../shared/task/state/record-runtime-send.sh"
+RECORD_SEND="$STATE_DIR/record-runtime-send.sh"
 
 usage() {
   cat <<'EOF'

@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-DB="$ROOT/shared/task/state/tasks.db"
-READY="$ROOT/skills/discord-visible-multiagent/scripts/hq-collab-handoff-ready.sh"
-HANDOFF_HELPER="$ROOT/skills/discord-visible-multiagent/scripts/hq-executor-handoff-helper.sh"
-SEND_PLAN="$ROOT/skills/discord-visible-multiagent/scripts/hq-handoff-send-plan.sh"
-FOLLOWUP="$ROOT/skills/discord-visible-multiagent/scripts/hq-followup-close-helper.sh"
-OWNERSHIP="$ROOT/skills/discord-visible-multiagent/scripts/executor-ownership-gate.sh"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+STATE_DIR="${TASK_STATE_DIR:-$WORKSPACE_ROOT/shared/task/state}"
+SKILL_DIR="${DISCORD_VISIBLE_MULTIAGENT_SKILL_DIR:-$SCRIPT_DIR/..}"
+DB="${TASK_DB_PATH:-$STATE_DIR/tasks.db}"
+READY="$SKILL_DIR/scripts/hq-collab-handoff-ready.sh"
+HANDOFF_HELPER="$SKILL_DIR/scripts/hq-executor-handoff-helper.sh"
+SEND_PLAN="$SKILL_DIR/scripts/hq-handoff-send-plan.sh"
+FOLLOWUP="$SKILL_DIR/scripts/hq-followup-close-helper.sh"
+OWNERSHIP="$SKILL_DIR/scripts/executor-ownership-gate.sh"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
@@ -16,6 +19,17 @@ ACTIVE_TASK="TASK-20260416-028"
 DONE_TASK="TASK-20260423-002"
 BLOCKED_TASK="TASK-20260423-001"
 TEMP_TASK="TASK-TEST-RUNTIME-TRUTH-REGRESSION"
+MISMATCH_THREAD_ID="000000000000000000"
+
+get_task_field() {
+  local task_id="$1"
+  local field="$2"
+  sqlite3 "$DB" "SELECT COALESCE($field, '') FROM tasks WHERE task_id='$task_id';"
+}
+
+ACTIVE_THREAD_ID="$(get_task_field "$ACTIVE_TASK" thread_id)"
+DONE_THREAD_ID="$(get_task_field "$DONE_TASK" thread_id)"
+BLOCKED_THREAD_ID="$(get_task_field "$BLOCKED_TASK" thread_id)"
 
 jq_get() {
   python3 -c 'import json,sys; obj=json.load(sys.stdin); path=sys.argv[1].split("."); cur=obj
@@ -86,36 +100,36 @@ assert_contains "$out" 'status_not_active'
 assert_contains "$out" 'missing_thread_id'
 assert_contains "$out" 'missing_hq_message_id'
 
-out="$(run_expect_fail_json ownership_done 5 bash "$OWNERSHIP" --task-id "$DONE_TASK" --executor-agent alhaitham-coder --executor-account alhaitham --thread-id 1496727762495471777)"
+out="$(run_expect_fail_json ownership_done 5 bash "$OWNERSHIP" --task-id "$DONE_TASK" --executor-agent alhaitham-coder --executor-account alhaitham --thread-id "$DONE_THREAD_ID")"
 assert_json_field "$out" "error" "task_not_active"
 assert_json_field "$out" "status" "DONE"
 
 printf '\n== notify gate mismatches ==\n'
-out="$(run_expect_fail_json notify_agent_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify agent mismatch test' --notify-agent yelan-research --notify-thread-id 1494342422795386983 --notify-round 1 --notify-text '[TASK-20260416-028][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
+out="$(run_expect_fail_json notify_agent_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify agent mismatch test' --notify-agent yelan-research --notify-thread-id "$ACTIVE_THREAD_ID" --notify-round 1 --notify-text '[TASK-20260416-028][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
 assert_contains "$out" 'notify_gate:executor_agent_mismatch'
 
-out="$(run_expect_fail_json notify_thread_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify thread mismatch test' --notify-agent alhaitham-coder --notify-thread-id 999999999999999999 --notify-round 1 --notify-text '[TASK-20260416-028][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
+out="$(run_expect_fail_json notify_thread_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify thread mismatch test' --notify-agent alhaitham-coder --notify-thread-id "$MISMATCH_THREAD_ID" --notify-round 1 --notify-text '[TASK-20260416-028][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
 assert_contains "$out" 'notify_gate:thread_id_mismatch'
 
-out="$(run_expect_fail_json notify_round_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify round mismatch test' --notify-agent alhaitham-coder --notify-thread-id 1494342422795386983 --notify-round 2 --notify-text '[TASK-20260416-028][R2] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
+out="$(run_expect_fail_json notify_round_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify round mismatch test' --notify-agent alhaitham-coder --notify-thread-id "$ACTIVE_THREAD_ID" --notify-round 2 --notify-text '[TASK-20260416-028][R2] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
 assert_contains "$out" 'notify_gate:round_mismatch'
 assert_contains "$out" 'notify_gate:notify_prefix_mismatch'
 
-out="$(run_expect_fail_json notify_shape_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify shape mismatch test' --notify-agent alhaitham-coder --notify-thread-id 1494342422795386983 --notify-round 1 --notify-text '任务做完了，请看一下')"
+out="$(run_expect_fail_json notify_shape_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify shape mismatch test' --notify-agent alhaitham-coder --notify-thread-id "$ACTIVE_THREAD_ID" --notify-round 1 --notify-text '任务做完了，请看一下')"
 assert_contains "$out" 'notify_gate:notify_shape_unrecognized'
 
 printf '\n== ownership mismatches ==\n'
-out="$(run_expect_fail_json ownership_account_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent alhaitham-coder --executor-account yelan --thread-id 1494342422795386983)"
+out="$(run_expect_fail_json ownership_account_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent alhaitham-coder --executor-account yelan --thread-id "$ACTIVE_THREAD_ID")"
 assert_contains "$out" 'executor_account_mismatch'
 
-out="$(run_expect_fail_json ownership_agent_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent yelan-research --executor-account alhaitham --thread-id 1494342422795386983)"
+out="$(run_expect_fail_json ownership_agent_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent yelan-research --executor-account alhaitham --thread-id "$ACTIVE_THREAD_ID")"
 assert_contains "$out" 'executor_agent_mismatch'
 
-out="$(run_expect_fail_json ownership_thread_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent alhaitham-coder --executor-account alhaitham --thread-id 999999999999999999)"
+out="$(run_expect_fail_json ownership_thread_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent alhaitham-coder --executor-account alhaitham --thread-id "$MISMATCH_THREAD_ID")"
 assert_contains "$out" 'thread_id_mismatch'
 
 printf '\n== blocked task must not accept ==\n'
-out="$(run_expect_fail_json accept_blocked 3 bash "$FOLLOWUP" --task-id "$BLOCKED_TASK" --decision accept --actor paimon-chief --summary 'test accept on blocked task' --notify-agent yelan-research --notify-thread-id 1496723919145668719 --notify-round 1 --notify-text '[TASK-20260423-001][R1] BLOCKED: cannot_post_to_thread
+out="$(run_expect_fail_json accept_blocked 3 bash "$FOLLOWUP" --task-id "$BLOCKED_TASK" --decision accept --actor paimon-chief --summary 'test accept on blocked task' --notify-agent yelan-research --notify-thread-id "$BLOCKED_THREAD_ID" --notify-round 1 --notify-text '[TASK-20260423-001][R1] BLOCKED: cannot_post_to_thread
 reason: test
 evidence: test')"
 assert_contains "$out" 'status_not_acceptable'
@@ -123,9 +137,9 @@ assert_json_field "$out" "writeback.next_status" ""
 assert_json_field "$out" "drafts.thread_message" ""
 
 printf '\n== active without anchors ==\n'
-python3 - <<'PY'
-import sqlite3
-p='/home/ubuntu/.openclaw/workspace/shared/task/state/tasks.db'
+python3 - "$DB" <<'PY'
+import sqlite3, sys
+p = sys.argv[1]
 conn=sqlite3.connect(p)
 conn.row_factory=sqlite3.Row
 cur=conn.cursor()
@@ -151,7 +165,7 @@ out="$(run_expect_fail_json ready_missing_anchors 3 bash "$READY" --task-id "$TE
 assert_contains "$out" 'missing_thread_id'
 assert_contains "$out" 'missing_hq_message_id'
 
-out="$(run_expect_fail_json accept_missing_anchors 3 bash "$FOLLOWUP" --task-id "$TEMP_TASK" --decision accept --actor paimon-chief --summary 'accept on active without anchors' --notify-agent alhaitham-coder --notify-thread-id 1494342422795386983 --notify-round 1 --notify-text '[TASK-TEST-RUNTIME-TRUTH-REGRESSION][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
+out="$(run_expect_fail_json accept_missing_anchors 3 bash "$FOLLOWUP" --task-id "$TEMP_TASK" --decision accept --actor paimon-chief --summary 'accept on active without anchors' --notify-agent alhaitham-coder --notify-thread-id "$ACTIVE_THREAD_ID" --notify-round 1 --notify-text '[TASK-TEST-RUNTIME-TRUTH-REGRESSION][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
 assert_contains "$out" 'missing_thread_id'
 assert_contains "$out" 'missing_hq_message_id'
 cleanup_temp

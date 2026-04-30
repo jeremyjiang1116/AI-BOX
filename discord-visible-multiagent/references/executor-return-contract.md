@@ -3,7 +3,7 @@
 This is the workspace authority for how an assigned executor returns a current-round result to HQ in Discord visible multi-agent collaboration.
 
 Canonical collaboration law:
-- `/home/ubuntu/.openclaw/shared/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
+- `<OPENCLAW_SHARED>/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
 
 Runtime send-shape authority:
 - `references/runtime-send-contracts.md`

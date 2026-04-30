@@ -8,8 +8,8 @@ description: Coordinate visible multi-agent collaboration across Discord channel
 This workspace skill is the **formal execution entry** for Discord visible multi-agent collaboration in this workspace.
 
 ## Canonical basis
-- Workflow canonical source: `/home/ubuntu/.openclaw/shared/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
-- Skill source artifacts: `/home/ubuntu/.openclaw/shared/artifacts/discord-visible-multiagent/`
+- Workflow canonical source: `<OPENCLAW_SHARED>/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
+- Skill source artifacts: `<OPENCLAW_SHARED>/artifacts/discord-visible-multiagent/`
 - Workspace workflow mirror: `docs/workflows/discord-true-multiround-workflow.md`
 
 Treat the canonical shared workflow as the top rule source.

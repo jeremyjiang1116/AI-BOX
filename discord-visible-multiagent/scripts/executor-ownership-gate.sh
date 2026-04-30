@@ -2,8 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-DB_PATH="${TASK_DB_PATH:-$WORKSPACE_ROOT/shared/task/state/tasks.db}"
+WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+STATE_DIR="${TASK_STATE_DIR:-$WORKSPACE_ROOT/shared/task/state}"
+DB_PATH="${TASK_DB_PATH:-$STATE_DIR/tasks.db}"
 
 usage() {
   cat <<'EOF'
@@ -52,7 +53,7 @@ escaped_task_id="$(printf "%s" "$TASK_ID" | sed "s/'/''/g")"
 row="$(sqlite3 -json "$DB_PATH" "SELECT task_id,status,executor_agent,executor_session_key,thread_id,current_round FROM tasks WHERE task_id = '$escaped_task_id';")"
 [[ -n "$row" ]] || row='[]'
 
-ROW_JSON="$row" EXECUTOR_AGENT="$EXECUTOR_AGENT" EXECUTOR_ACCOUNT="$EXECUTOR_ACCOUNT" THREAD_ID="$THREAD_ID" python3 - <<'PY'
+ROW_JSON="$row" EXECUTOR_AGENT="$EXECUTOR_AGENT" EXECUTOR_ACCOUNT="$EXECUTOR_ACCOUNT" THREAD_ID="$THREAD_ID" SCRIPT_DIR="$SCRIPT_DIR" python3 - <<'PY'
 import json, os, sys
 from pathlib import Path
 
@@ -87,44 +88,16 @@ if provided_agent != expected_agent:
 if provided_thread != expected_thread:
     errors.append('thread_id_mismatch')
 
-sessions_path = Path(f"/home/ubuntu/.openclaw/agents/{expected_agent}/sessions/sessions.json")
-expected_account = ''
-account_evidence = []
-if sessions_path.exists():
-    try:
-        sessions_obj = json.loads(sessions_path.read_text())
-        candidates = []
-        for session_key, meta in sessions_obj.items():
-            if not isinstance(meta, dict):
-                continue
-            origin = meta.get('origin') or {}
-            delivery = meta.get('deliveryContext') or {}
-            for label, value in [
-                ('origin.accountId', origin.get('accountId')),
-                ('deliveryContext.accountId', delivery.get('accountId')),
-                ('lastAccountId', meta.get('lastAccountId')),
-            ]:
-                if value:
-                    candidates.append((label, value, session_key))
-        uniq = sorted(set(v for _, v, _ in candidates))
-        if len(uniq) == 1:
-            expected_account = uniq[0]
-            account_evidence = [
-                {'source': label, 'value': value, 'sessionKey': session_key}
-                for label, value, session_key in candidates if value == expected_account
-            ]
-        elif len(uniq) > 1:
-            errors.append('executor_account_binding_ambiguous')
-            account_evidence = [
-                {'source': label, 'value': value, 'sessionKey': session_key}
-                for label, value, session_key in candidates
-            ]
-    except Exception as e:
-        errors.append('executor_sessions_parse_failed')
-        account_evidence = {'error': str(e), 'sessions_path': str(sessions_path)}
-else:
-    errors.append('executor_sessions_missing')
-    account_evidence = {'sessions_path': str(sessions_path), 'exists': False}
+import importlib.util
+helper_path = Path(os.environ["SCRIPT_DIR"]) / "account-binding-lib.py"
+spec = importlib.util.spec_from_file_location("account_binding_lib", helper_path)
+account_binding_lib = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(account_binding_lib)
+binding = account_binding_lib.discover_account_binding(expected_agent)
+expected_account = binding.get('account_id') or ''
+account_evidence = binding.get('evidence') or []
+if not binding.get('ok'):
+    errors.append(binding.get('error') or 'executor_account_binding_failed')
 
 if expected_account and provided_account != expected_account:
     errors.append('executor_account_mismatch')

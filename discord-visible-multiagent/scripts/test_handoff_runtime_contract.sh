@@ -22,12 +22,15 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-DB="$ROOT/shared/task/state/tasks.db"
-HANDOFF_HELPER="$ROOT/skills/discord-visible-multiagent/scripts/hq-executor-handoff-helper.sh"
-SEND_PLAN="$ROOT/skills/discord-visible-multiagent/scripts/hq-handoff-send-plan.sh"
-VALIDATOR="$ROOT/skills/discord-visible-multiagent/scripts/validate_handoff_send_plan.py"
-REMINDER="$ROOT/shared/task/state/executor-reminder-helper.sh"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+STATE_DIR="${TASK_STATE_DIR:-$WORKSPACE_ROOT/shared/task/state}"
+SKILL_DIR="${DISCORD_VISIBLE_MULTIAGENT_SKILL_DIR:-$SCRIPT_DIR/..}"
+DB="${TASK_DB_PATH:-$STATE_DIR/tasks.db}"
+HANDOFF_HELPER="$SKILL_DIR/scripts/hq-executor-handoff-helper.sh"
+SEND_PLAN="$SKILL_DIR/scripts/hq-handoff-send-plan.sh"
+VALIDATOR="$SKILL_DIR/scripts/validate_handoff_send_plan.py"
+REMINDER="$STATE_DIR/executor-reminder-helper.sh"
 
 SOURCE_TASK_ID="${1:-TASK-20260423-002}"
 TASK_ID="TASK-TEST-HANDOFF-CONTRACT"
@@ -76,7 +79,7 @@ assert 'thread-visible executor notify' in message
 assert 'HQ 从同一任务 thread 读取这条完成通知' in message
 assert '禁止把 notify 发到 executor 主频道或 `#hq-command`' in message
 assert 'NO_REPLY' in message
-assert '--target channel:1483658047443177512' not in message
+assert '--target channel:<HQ_CHANNEL_ID>' not in message
 assert '--reply-to' not in message
 print(json.dumps({'ok': True, 'notify_transport': templates.get('hq_notify_transport')}, ensure_ascii=False))
 PY
