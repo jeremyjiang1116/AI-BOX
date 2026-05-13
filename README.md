@@ -4,6 +4,8 @@ Private repository for AI workflows, skills, and collaboration assets.
 
 ## Included
 
+- `web-research/` — OpenClaw skill for web research/search routing, including general search, Chinese web/WeChat discovery, verification, GitHub/source search, and known-URL handoff.
+- `web-scrape/` — OpenClaw skill for extracting readable content from known URLs, including WeChat official account articles.
 - `discord-visible-multiagent/` — OpenClaw skill for visible Discord multi-agent collaboration workflows.
 
 ---

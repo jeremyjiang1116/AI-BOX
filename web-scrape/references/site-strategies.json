@@ -1,0 +1,59 @@
+{
+  "piao.bjry.com": {
+    "name": "北京人艺票务",
+    "strategy": "playwright",
+    "notes": "票务系统，基础 HTML 通常只有壳；优先 Playwright 渲染，并检查 XHR/fetch 请求。",
+    "api_probe_hints": ["inspect same-origin XHR/fetch requests", "look for API-like paths in browser network traffic"],
+    "failure_signatures": ["maitix", "ncDisable", "AliApp/WindVane"]
+  },
+  "bjry.com": {
+    "name": "北京人民艺术剧院",
+    "strategy": "playwright",
+    "notes": "主站高度 JS 渲染，静态内容可能不足；票务子域另有更具体策略。",
+    "homepage": "https://www.bjry.com/",
+    "mobile_url": "https://m.bjry.com/",
+    "api_probe_hints": ["inspect same-origin XHR/fetch requests", "check whether data is loaded from a ticketing subdomain"],
+    "failure_signatures": ["maitix", "ncDisable", "WindVane", "aplus_v2.js", "spider", "bot"]
+  },
+  "wticket.chncpa.org": {
+    "name": "国家大剧院票务",
+    "strategy": "playwright",
+    "notes": "票务域多为 JS 渲染；若跳回主站，报告当前可见内容和限制。",
+    "api_probe_hints": ["inspect product/detail XHR requests", "compare rendered page URL after redirects"],
+    "failure_signatures": ["跳回主站"]
+  },
+  "chncpa.org": {
+    "name": "国家大剧院",
+    "strategy": "html-fetch",
+    "notes": "主站静态内容通常可读；详情页动态字段缺失时再升级到 Playwright。",
+    "homepage": "https://www.chncpa.org/",
+    "mobile_url": "https://m.chncpa.org/",
+    "api_probe_hints": ["inspect same-origin XHR/fetch requests when rendered fields are missing"],
+    "failure_signatures": ["动态字段缺失", "票务域跳回主站"]
+  },
+  "tqpac.com": {
+    "name": "北京天桥艺术中心",
+    "strategy": "playwright",
+    "notes": "JS 渲染明显，基础 HTML 可能只有标题或应用壳。",
+    "homepage": "https://www.tqpac.com/",
+    "api_probe_hints": ["inspect same-origin XHR/fetch requests"],
+    "failure_signatures": ["只有标题无正文", "JS渲染"]
+  },
+  "maitix.com": {
+    "name": "麦座/大麦系票务",
+    "strategy": "playwright",
+    "notes": "可能有 WindVane/MTOPSDK 检测；Playwright 失败时不要编造结果。",
+    "failure_signatures": ["AliApp/WindVane", "MTOPSDK", "spider", "bot", "ncDisable"]
+  },
+  "damai.cn": {
+    "name": "大麦网",
+    "strategy": "playwright",
+    "notes": "强反爬且高度 JS 渲染；Playwright 也可能遇到挑战页。",
+    "failure_signatures": ["damai.cn", "spider", "captcha"]
+  },
+  "piaoniu.com": {
+    "name": "票牛",
+    "strategy": "playwright",
+    "notes": "动态加载为主，优先 Playwright。"
+  }
+}
