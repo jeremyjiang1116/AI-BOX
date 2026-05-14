@@ -1,17 +1,63 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-DB="$ROOT/shared/task/state/tasks.db"
+ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
 TMPDIR="$(mktemp -d)"
-SOURCE_TASK="TASK-20260416-028"
-TEST_TASK="TASK-TEST-VISIBLE-CONTRACT-001"
+DB="${TASK_DB_PATH:-$TMPDIR/workspace/shared/task/state/tasks.db}"
+SOURCE_TASK="${SOURCE_TASK:-TASK-TEST-SOURCE-001}"
+TEST_TASK="${TEST_TASK:-TASK-TEST-VISIBLE-CONTRACT-001}"
 
 cleanup() {
-  sqlite3 "$DB" "DELETE FROM tasks WHERE task_id='$TEST_TASK';" >/dev/null 2>&1 || true
   rm -rf "$TMPDIR"
 }
 trap cleanup EXIT
+
+python3 - <<'PY' "$DB" "$SOURCE_TASK"
+import json, sqlite3, sys
+from pathlib import Path
+p, source_task_id = sys.argv[1:3]
+Path(p).parent.mkdir(parents=True, exist_ok=True)
+conn = sqlite3.connect(p)
+cur = conn.cursor()
+cur.execute("""
+CREATE TABLE IF NOT EXISTS tasks (
+  task_id TEXT PRIMARY KEY,
+  title TEXT,
+  slug TEXT,
+  status TEXT,
+  phase TEXT,
+  hq_channel TEXT,
+  thread_name TEXT,
+  executor_agent TEXT,
+  executor_session_key TEXT,
+  current_round INTEGER,
+  priority TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  next_check_at TEXT,
+  thread_id TEXT,
+  hq_message_id TEXT,
+  result_summary TEXT,
+  result_payload_json TEXT
+)
+""")
+cur.execute("SELECT 1 FROM tasks WHERE task_id=?", (source_task_id,))
+if cur.fetchone() is None:
+    cur.execute(
+        """INSERT INTO tasks (
+          task_id,title,slug,status,phase,hq_channel,thread_name,executor_agent,executor_session_key,
+          current_round,priority,created_at,updated_at,next_check_at,thread_id,hq_message_id,result_summary,result_payload_json
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (
+          source_task_id, "Fixture source task", "fixture-source", "NEW", "test", "channel:000000000000000000",
+          "fixture-thread", "alhaitham-coder", "agent:alhaitham-coder:discord:channel:666666666666666666",
+          1, "normal", "2026-01-01T00:00:00+0800", "2026-01-01T00:00:00+0800", None,
+          None, None, None, json.dumps({"fixture": True}, ensure_ascii=False),
+        ),
+    )
+conn.commit()
+conn.close()
+PY
 
 python3 - <<'PY' "$DB" "$SOURCE_TASK" "$TEST_TASK"
 import sqlite3, sys

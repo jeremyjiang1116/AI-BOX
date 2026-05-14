@@ -1,0 +1,12 @@
+{
+  "name": "ai-box-skills",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "check": "bash scripts/doctor.sh",
+    "check:js": "node --check web-research/scripts/*.mjs"
+  }
+}

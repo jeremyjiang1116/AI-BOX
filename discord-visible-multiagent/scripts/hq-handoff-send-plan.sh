@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HANDOFF_HELPER="$SCRIPT_DIR/hq-executor-handoff-helper.sh"
 VALIDATOR="$SCRIPT_DIR/validate_handoff_send_plan.py"
-WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
 RECORD_SEND="$WORKSPACE_ROOT/shared/task/state/record-runtime-send.sh"
 
 usage() {

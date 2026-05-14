@@ -37,6 +37,29 @@ AI-BOX/
 3. Use files under `references/` only when the skill asks for deeper workflow details.
 4. Keep generated artifacts, caches, local environment files, and secrets out of the repository.
 
+## Local development
+
+Run repository sanity checks with Node 18+ and Bash:
+
+```bash
+npm run check
+```
+
+For JavaScript-only syntax checks:
+
+```bash
+npm run check:js
+```
+
+Install `web-scrape` Python dependencies in an isolated environment:
+
+```bash
+python3 -m venv .venv-web
+. .venv-web/bin/activate
+pip install -r web-scrape/requirements.txt
+python -m playwright install chromium
+```
+
 ## Skill summaries
 
 ### `web-research`

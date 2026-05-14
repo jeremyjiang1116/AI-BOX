@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
 STATE_DIR="$WORKSPACE_ROOT/shared/task/state"
 DB_PATH="${TASK_DB_PATH:-$STATE_DIR/tasks.db}"
 TZ_NAME="${TASK_TZ:-Asia/Shanghai}"

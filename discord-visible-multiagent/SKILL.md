@@ -5,6 +5,53 @@ description: Coordinate formal, visible multi-agent collaboration across Discord
 
 # discord-visible-multiagent
 
+
+## Quick Decision Card
+
+Use this skill when:
+- a named executor is involved;
+- Discord thread-visible collaboration is required;
+- `task_id` / round / HQ acceptance must be tracked.
+
+Minimum HQ path:
+1. Run `scripts/hq-formal-collab-gate.sh`.
+2. Create the visible `[R<n>]` thread anchor with `scripts/hq-visible-dispatch-run.sh`.
+3. Check readiness with `scripts/hq-collab-handoff-ready.sh`.
+4. Generate executor handoff with `scripts/hq-executor-handoff-helper.sh`.
+5. Generate the validated runtime send plan with `scripts/hq-handoff-send-plan.sh`.
+6. Execute the exact `sessions_send` plan and record `executor_handoff` only after the real send succeeds.
+7. Executor posts the result in the task thread using the sanctioned path.
+8. Executor posts the fixed same-thread notify.
+9. HQ verifies thread evidence when needed, then accepts or continues with `scripts/hq-followup-close-helper.sh`.
+
+Never:
+- treat executor completion as HQ acceptance;
+- skip the visible `[R<n>]` anchor;
+- send as the wrong actor/account;
+- allow R16+ without explicit user override;
+- invent ad hoc Discord send paths;
+- move notify to the executor main channel or `#hq-command`.
+
+## Portable core rules
+
+These rules are portable across OpenClaw workspaces:
+- select this skill before content-layer execution for formal named-executor collaboration;
+- preserve task anchors: `task_id`, thread/message anchors, executor, current round, status;
+- HQ owns dispatch, review, acceptance, close, and round authority;
+- executor owns executor-result posting and same-thread notify;
+- helper-generated payloads and send plans are the source of truth for fragile send shapes.
+
+## Workspace-specific assumptions
+
+This published copy keeps the workflow portable, but some helpers assume a standard OpenClaw workspace layout unless overridden. See `references/workspace-specific.md` before adapting this skill to a different deployment.
+
+Default assumptions include:
+- `OPENCLAW_WORKSPACE_ROOT` defaults to the repository/workspace root inferred from `scripts/`;
+- `TASK_DB_PATH` defaults to `$OPENCLAW_WORKSPACE_ROOT/shared/task/state/tasks.db`;
+- task-state helper scripts live under `shared/task/state/`;
+- executor session metadata lives under `OPENCLAW_AGENTS_ROOT` or `$HOME/.openclaw/agents`;
+- local workflow mirrors such as `docs/workflows/` are supporting notes, not public portability requirements.
+
 This skill is the **workspace execution gate** for formal Discord visible multi-agent collaboration.
 
 Use it to keep HQ ↔ executor work visible, task-state-backed, round-bounded, and truthful. Keep detailed procedure in the reference files; keep this file small enough to be the first thing an operator can actually read.
@@ -12,8 +59,9 @@ Use it to keep HQ ↔ executor work visible, task-state-backed, round-bounded, a
 ## Authority map
 
 1. **Canonical collaboration law**
-   - `$HOME/.openclaw/shared/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
+   - In Jeremy/OpenClaw workspaces this is mirrored at `$HOME/.openclaw/shared/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`.
    - Defines role boundaries, visible multi-round law, round cap, and close/acceptance behavior.
+   - For portable installs, treat this `SKILL.md` plus `references/` as the packaged public contract.
 
 2. **This `SKILL.md`**
    - Decides when the workflow triggers.
@@ -32,7 +80,8 @@ Use it to keep HQ ↔ executor work visible, task-state-backed, round-bounded, a
    - `workflow.md`, `boundaries.md`, `anti-patterns.md`, `eval-prompts.md` — supporting context.
 
 4. **Workspace workflow mirrors under `docs/workflows/`**
-   - Supporting implementation notes only. They must not compete with this skill or the canonical workflow.
+   - Jeremy/OpenClaw supporting implementation notes only. They must not compete with this skill or the canonical workflow.
+   - See `references/workspace-specific.md` for portability boundaries.
 
 If these layers conflict: trust the canonical workflow first, then this skill, then the specific runtime/reference authority. Fix the drifting document instead of inventing a new path.
 
@@ -109,7 +158,7 @@ hq-formal-collab-gate.sh
 → hq-executor-handoff-helper.sh
 → hq-handoff-send-plan.sh
 → runtime sessions_send exactly as planned
-→ shared/task/state/record-runtime-send.sh --kind executor_handoff
+→ $OPENCLAW_WORKSPACE_ROOT/shared/task/state/record-runtime-send.sh --kind executor_handoff
 → hq-followup-close-helper.sh when reviewing/advancing/closing
 ```
 
@@ -136,9 +185,9 @@ If the executor cannot safely post to the tracked thread, report `BLOCKED` with 
 When changing helper behavior, task-state gates, ownership/account binding, notify validation, send-plan validation, visible payload construction, or runtime send contracts, run these serially:
 
 ```bash
-skills/discord-visible-multiagent/scripts/test_runtime_truth_regressions.sh
-skills/discord-visible-multiagent/scripts/test_handoff_runtime_contract.sh
-skills/discord-visible-multiagent/scripts/test_visible_contract_integrity.sh
+discord-visible-multiagent/scripts/test_runtime_truth_regressions.sh
+discord-visible-multiagent/scripts/test_handoff_runtime_contract.sh
+discord-visible-multiagent/scripts/test_visible_contract_integrity.sh
 ```
 
 Run serially because they share the SQLite task-state store and parallel runs can create misleading lock failures.

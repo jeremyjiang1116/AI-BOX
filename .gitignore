@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+.venv-web/
+venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+secrets/
+
+# Runtime logs and local OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Local databases and runtime state
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+tasks.db
+
+# Build/package artifacts
+dist/
+build/
+.cache/
+*.skill
+*.tar
+*.tar.gz
+*.zip
