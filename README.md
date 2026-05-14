@@ -27,8 +27,7 @@ AI-BOX/
 └── discord-visible-multiagent/
     ├── SKILL.md
     ├── scripts/
-    ├── references/
-    └── examples/
+    └── references/
 ```
 
 ## How to use

@@ -1,16 +1,16 @@
 # HQ Workflow (v1) — Discord Visible Multi-Agent HQ Path
 
 Canonical collaboration law:
-- `<OPENCLAW_SHARED>/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
+- `$HOME/.openclaw/shared/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
 
 Workspace execution gate:
-- `<WORKSPACE>/skills/discord-visible-multiagent/SKILL.md`
+- `$HOME/.openclaw/workspace/skills/discord-visible-multiagent/SKILL.md`
 
 Runtime send contract authority:
-- `<WORKSPACE>/skills/discord-visible-multiagent/references/runtime-send-contracts.md`
+- `$HOME/.openclaw/workspace/skills/discord-visible-multiagent/references/runtime-send-contracts.md`
 
 Single executor return contract:
-- `<WORKSPACE>/skills/discord-visible-multiagent/references/executor-return-contract.md`
+- `$HOME/.openclaw/workspace/skills/discord-visible-multiagent/references/executor-return-contract.md`
 
 This file is HQ-only.
 It defines what **HQ / paimon-chief** must do, and what HQ must never delegate, fake, or silently skip.
@@ -75,8 +75,17 @@ HQ must use this exact chain:
 - do not improvise selector combinations
 - `hq-handoff-send-plan.sh` now performs the exact send-shape validation internally
 - if preflight evidence must be written back, use `hq-handoff-send-plan.sh --record-preflight`
+- preflight writeback is `executor_handoff_preflight` only; it is not proof that the real handoff was sent
 - if the exact runtime send contract fails, stop and classify as runtime/tooling boundary
 - do not report handoff as completed if only payload generation succeeded
+
+### Mid-task executor reassignment
+If HQ must switch executor for the next/current round:
+1. first post the new current-round visible instruction in the tracked task thread
+2. run `hq-reassign-executor.sh` with the new executor, session key, new HQ message id, and expected old executor when known
+3. then resume the normal formal handoff chain from `hq-executor-handoff-helper.sh`
+
+Do not use direct SQLite edits for executor switches now that the helper exists. The helper owns backup, binding validation, and reassignment provenance.
 
 ## 4. Phase D — HQ reminder / sync
 This is a follow-up side-path, not a substitute for review/acceptance logic.
@@ -104,6 +113,7 @@ When HQ receives executor notify:
 - notify is necessary, not sufficient
 - HQ follow-up / acceptance must pass the notify-closure checks now embedded inside `skills/discord-visible-multiagent/scripts/hq-followup-close-helper.sh`
 - then HQ must confirm the thread-visible result when required by the workflow
+- when result and notify message IDs are known, use `skills/discord-visible-multiagent/scripts/hq-thread-evidence-verify.sh` to verify message existence, executor author/account provenance, result-before-notify ordering, and notify shape
 - HQ must not collapse uncertainty into “looks done”
 - HQ must evaluate the executor return against `references/executor-return-contract.md`: thread result first, executor-owned sender/account, short internal confirmation, then fixed success/BLOCKED notify
 

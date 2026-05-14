@@ -1,6 +1,6 @@
 # Cross-Channel Templates (v5)
 
-Canonical source: `<OPENCLAW_SHARED>/artifacts/discord-visible-multiagent/references/templates.md`
+Canonical source: `$HOME/.openclaw/shared/artifacts/discord-visible-multiagent/references/templates.md`
 
 Use this file only for the most common visible text shapes around the current operator surface.
 If you need helper selection, read `operator-cheat-sheet.md` or `helper-routing.md` instead.

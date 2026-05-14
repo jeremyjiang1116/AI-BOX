@@ -2,11 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
-STATE_DIR="${TASK_STATE_DIR:-$WORKSPACE_ROOT/shared/task/state}"
 HANDOFF_HELPER="$SCRIPT_DIR/hq-executor-handoff-helper.sh"
 VALIDATOR="$SCRIPT_DIR/validate_handoff_send_plan.py"
-RECORD_SEND="$STATE_DIR/record-runtime-send.sh"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+RECORD_SEND="$WORKSPACE_ROOT/shared/task/state/record-runtime-send.sh"
 
 usage() {
   cat <<'EOF'
@@ -21,6 +20,7 @@ Behavior:
   2. Enforces selector-only planning rules
   3. Validates the exact runtime send shape internally
   4. Returns a runtime send plan, but does NOT perform the send
+  5. Optional --record-preflight records only validation evidence, not a real handoff
 
 Hard rules:
   - If executor_session_key is present, it is the only allowed selector
@@ -32,6 +32,10 @@ Formats:
   - json      : structured send plan + blocker template
   - tool_call : exact tool-call arguments for runtimes that require whitespace label placeholder
   - exec_json : exact JSON payload for validation / preflight / regression checks
+
+Record-preflight:
+  --record-preflight writes kind=executor_handoff_preflight. It must never be
+  treated as proof that sessions_send already happened.
 EOF
 }
 
@@ -133,9 +137,9 @@ PY
 )"
   bash "$RECORD_SEND" \
     --task-id "$TASK_ID" \
-    --kind executor_handoff \
+    --kind executor_handoff_preflight \
     --actor "$ACTOR" \
-    --summary "Formal handoff preflight passed with validated runtime send contract" \
+    --summary "Formal handoff preflight passed; real sessions_send still required" \
     --payload-json "$compact_payload"
 fi
 

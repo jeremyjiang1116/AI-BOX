@@ -1,6 +1,6 @@
 # Required Anti-Patterns (v4 — Must Avoid)
 
-Canonical source: `<OPENCLAW_SHARED>/artifacts/discord-visible-multiagent/references/anti-patterns.md`
+Canonical source: `$HOME/.openclaw/shared/artifacts/discord-visible-multiagent/references/anti-patterns.md`
 Workspace supplements:
 - `docs/workflows/task-state-discord-integration.md`
 - `docs/workflows/task-state-mvp-v1.md`

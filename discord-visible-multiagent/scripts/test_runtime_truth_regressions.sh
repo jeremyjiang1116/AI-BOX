@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
-STATE_DIR="${TASK_STATE_DIR:-$WORKSPACE_ROOT/shared/task/state}"
-SKILL_DIR="${DISCORD_VISIBLE_MULTIAGENT_SKILL_DIR:-$SCRIPT_DIR/..}"
-DB="${TASK_DB_PATH:-$STATE_DIR/tasks.db}"
-READY="$SKILL_DIR/scripts/hq-collab-handoff-ready.sh"
-HANDOFF_HELPER="$SKILL_DIR/scripts/hq-executor-handoff-helper.sh"
-SEND_PLAN="$SKILL_DIR/scripts/hq-handoff-send-plan.sh"
-FOLLOWUP="$SKILL_DIR/scripts/hq-followup-close-helper.sh"
-OWNERSHIP="$SKILL_DIR/scripts/executor-ownership-gate.sh"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+DB="$ROOT/shared/task/state/tasks.db"
+READY="$ROOT/skills/discord-visible-multiagent/scripts/hq-collab-handoff-ready.sh"
+HANDOFF_HELPER="$ROOT/skills/discord-visible-multiagent/scripts/hq-executor-handoff-helper.sh"
+SEND_PLAN="$ROOT/skills/discord-visible-multiagent/scripts/hq-handoff-send-plan.sh"
+FOLLOWUP="$ROOT/skills/discord-visible-multiagent/scripts/hq-followup-close-helper.sh"
+OWNERSHIP="$ROOT/skills/discord-visible-multiagent/scripts/executor-ownership-gate.sh"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
@@ -19,17 +16,6 @@ ACTIVE_TASK="TASK-20260416-028"
 DONE_TASK="TASK-20260423-002"
 BLOCKED_TASK="TASK-20260423-001"
 TEMP_TASK="TASK-TEST-RUNTIME-TRUTH-REGRESSION"
-MISMATCH_THREAD_ID="000000000000000000"
-
-get_task_field() {
-  local task_id="$1"
-  local field="$2"
-  sqlite3 "$DB" "SELECT COALESCE($field, '') FROM tasks WHERE task_id='$task_id';"
-}
-
-ACTIVE_THREAD_ID="$(get_task_field "$ACTIVE_TASK" thread_id)"
-DONE_THREAD_ID="$(get_task_field "$DONE_TASK" thread_id)"
-BLOCKED_THREAD_ID="$(get_task_field "$BLOCKED_TASK" thread_id)"
 
 jq_get() {
   python3 -c 'import json,sys; obj=json.load(sys.stdin); path=sys.argv[1].split("."); cur=obj
@@ -100,36 +86,36 @@ assert_contains "$out" 'status_not_active'
 assert_contains "$out" 'missing_thread_id'
 assert_contains "$out" 'missing_hq_message_id'
 
-out="$(run_expect_fail_json ownership_done 5 bash "$OWNERSHIP" --task-id "$DONE_TASK" --executor-agent alhaitham-coder --executor-account alhaitham --thread-id "$DONE_THREAD_ID")"
+out="$(run_expect_fail_json ownership_done 5 bash "$OWNERSHIP" --task-id "$DONE_TASK" --executor-agent alhaitham-coder --executor-account alhaitham --thread-id 111111111111111111)"
 assert_json_field "$out" "error" "task_not_active"
 assert_json_field "$out" "status" "DONE"
 
 printf '\n== notify gate mismatches ==\n'
-out="$(run_expect_fail_json notify_agent_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify agent mismatch test' --notify-agent yelan-research --notify-thread-id "$ACTIVE_THREAD_ID" --notify-round 1 --notify-text '[TASK-20260416-028][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
+out="$(run_expect_fail_json notify_agent_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify agent mismatch test' --notify-agent yelan-research --notify-thread-id 222222222222222222 --notify-round 1 --notify-text '[TASK-20260416-028][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
 assert_contains "$out" 'notify_gate:executor_agent_mismatch'
 
-out="$(run_expect_fail_json notify_thread_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify thread mismatch test' --notify-agent alhaitham-coder --notify-thread-id "$MISMATCH_THREAD_ID" --notify-round 1 --notify-text '[TASK-20260416-028][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
+out="$(run_expect_fail_json notify_thread_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify thread mismatch test' --notify-agent alhaitham-coder --notify-thread-id 333333333333333333 --notify-round 1 --notify-text '[TASK-20260416-028][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
 assert_contains "$out" 'notify_gate:thread_id_mismatch'
 
-out="$(run_expect_fail_json notify_round_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify round mismatch test' --notify-agent alhaitham-coder --notify-thread-id "$ACTIVE_THREAD_ID" --notify-round 2 --notify-text '[TASK-20260416-028][R2] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
+out="$(run_expect_fail_json notify_round_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify round mismatch test' --notify-agent alhaitham-coder --notify-thread-id 222222222222222222 --notify-round 2 --notify-text '[TASK-20260416-028][R2] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
 assert_contains "$out" 'notify_gate:round_mismatch'
 assert_contains "$out" 'notify_gate:notify_prefix_mismatch'
 
-out="$(run_expect_fail_json notify_shape_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify shape mismatch test' --notify-agent alhaitham-coder --notify-thread-id "$ACTIVE_THREAD_ID" --notify-round 1 --notify-text '任务做完了，请看一下')"
+out="$(run_expect_fail_json notify_shape_mismatch 3 bash "$FOLLOWUP" --task-id "$ACTIVE_TASK" --decision accept --actor paimon-chief --summary 'notify shape mismatch test' --notify-agent alhaitham-coder --notify-thread-id 222222222222222222 --notify-round 1 --notify-text '任务做完了，请看一下')"
 assert_contains "$out" 'notify_gate:notify_shape_unrecognized'
 
 printf '\n== ownership mismatches ==\n'
-out="$(run_expect_fail_json ownership_account_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent alhaitham-coder --executor-account yelan --thread-id "$ACTIVE_THREAD_ID")"
+out="$(run_expect_fail_json ownership_account_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent alhaitham-coder --executor-account yelan --thread-id 222222222222222222)"
 assert_contains "$out" 'executor_account_mismatch'
 
-out="$(run_expect_fail_json ownership_agent_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent yelan-research --executor-account alhaitham --thread-id "$ACTIVE_THREAD_ID")"
+out="$(run_expect_fail_json ownership_agent_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent yelan-research --executor-account alhaitham --thread-id 222222222222222222)"
 assert_contains "$out" 'executor_agent_mismatch'
 
-out="$(run_expect_fail_json ownership_thread_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent alhaitham-coder --executor-account alhaitham --thread-id "$MISMATCH_THREAD_ID")"
+out="$(run_expect_fail_json ownership_thread_mismatch 6 bash "$OWNERSHIP" --task-id "$ACTIVE_TASK" --executor-agent alhaitham-coder --executor-account alhaitham --thread-id 333333333333333333)"
 assert_contains "$out" 'thread_id_mismatch'
 
 printf '\n== blocked task must not accept ==\n'
-out="$(run_expect_fail_json accept_blocked 3 bash "$FOLLOWUP" --task-id "$BLOCKED_TASK" --decision accept --actor paimon-chief --summary 'test accept on blocked task' --notify-agent yelan-research --notify-thread-id "$BLOCKED_THREAD_ID" --notify-round 1 --notify-text '[TASK-20260423-001][R1] BLOCKED: cannot_post_to_thread
+out="$(run_expect_fail_json accept_blocked 3 bash "$FOLLOWUP" --task-id "$BLOCKED_TASK" --decision accept --actor paimon-chief --summary 'test accept on blocked task' --notify-agent yelan-research --notify-thread-id 444444444444444444 --notify-round 1 --notify-text '[TASK-20260423-001][R1] BLOCKED: cannot_post_to_thread
 reason: test
 evidence: test')"
 assert_contains "$out" 'status_not_acceptable'
@@ -137,9 +123,9 @@ assert_json_field "$out" "writeback.next_status" ""
 assert_json_field "$out" "drafts.thread_message" ""
 
 printf '\n== active without anchors ==\n'
-python3 - "$DB" <<'PY'
-import sqlite3, sys
-p = sys.argv[1]
+python3 - <<'PY'
+import os, sqlite3
+p=os.path.expanduser('~/.openclaw/workspace/shared/task/state/tasks.db')
 conn=sqlite3.connect(p)
 conn.row_factory=sqlite3.Row
 cur=conn.cursor()
@@ -165,9 +151,113 @@ out="$(run_expect_fail_json ready_missing_anchors 3 bash "$READY" --task-id "$TE
 assert_contains "$out" 'missing_thread_id'
 assert_contains "$out" 'missing_hq_message_id'
 
-out="$(run_expect_fail_json accept_missing_anchors 3 bash "$FOLLOWUP" --task-id "$TEMP_TASK" --decision accept --actor paimon-chief --summary 'accept on active without anchors' --notify-agent alhaitham-coder --notify-thread-id "$ACTIVE_THREAD_ID" --notify-round 1 --notify-text '[TASK-TEST-RUNTIME-TRUTH-REGRESSION][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
+out="$(run_expect_fail_json accept_missing_anchors 3 bash "$FOLLOWUP" --task-id "$TEMP_TASK" --decision accept --actor paimon-chief --summary 'accept on active without anchors' --notify-agent alhaitham-coder --notify-thread-id 222222222222222222 --notify-round 1 --notify-text '[TASK-TEST-RUNTIME-TRUTH-REGRESSION][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。')"
 assert_contains "$out" 'missing_thread_id'
 assert_contains "$out" 'missing_hq_message_id'
+cleanup_temp
+
+printf '\n== executor reassignment helper ==\n'
+REASSIGN="$ROOT/skills/discord-visible-multiagent/scripts/hq-reassign-executor.sh"
+python3 - <<'PY'
+import os, sqlite3
+p=os.path.expanduser('~/.openclaw/workspace/shared/task/state/tasks.db')
+conn=sqlite3.connect(p)
+conn.row_factory=sqlite3.Row
+cur=conn.cursor()
+cur.execute("SELECT * FROM tasks WHERE task_id='TASK-20260514-001'")
+row=cur.fetchone()
+if row is None:
+    cur.execute("SELECT * FROM tasks WHERE task_id='TASK-20260416-028'")
+    row=cur.fetchone()
+if row is None:
+    raise SystemExit('no source task available for reassignment regression')
+cols=[r[1] for r in cur.execute('PRAGMA table_info(tasks)').fetchall()]
+data={c: row[c] for c in cols}
+data['task_id']='TASK-TEST-RUNTIME-TRUTH-REGRESSION'
+data['status']='ACTIVE'
+data['thread_id']=data.get('thread_id') or '222222222222222222'
+data['hq_message_id']=data.get('hq_message_id') or '222222222222222223'
+data['current_round']=2
+data['executor_agent']='yelan-research'
+data['executor_session_key']='agent:yelan-research:discord:channel:555555555555555555'
+cur.execute("DELETE FROM tasks WHERE task_id=?", (data['task_id'],))
+cur.execute(f"INSERT INTO tasks ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [data[c] for c in cols])
+conn.commit()
+conn.close()
+PY
+out="$TMPDIR/reassign.json"
+bash "$REASSIGN" \
+  --task-id "$TEMP_TASK" \
+  --new-executor-agent alhaitham-coder \
+  --new-executor-session-key agent:alhaitham-coder:discord:channel:666666666666666666 \
+  --new-hq-message-id 777777777777777777 \
+  --round 2 \
+  --expected-old-executor yelan-research \
+  --summary 'regression executor reassignment' >"$out"
+assert_json_field "$out" "ok" "True"
+assert_json_field "$out" "to.executor_agent" "alhaitham-coder"
+assert_json_field "$out" "to.executor_session_key" "agent:alhaitham-coder:discord:channel:666666666666666666"
+reassigned_agent="$(sqlite3 "$DB" "SELECT executor_agent FROM tasks WHERE task_id='$TEMP_TASK';")"
+if [[ "$reassigned_agent" != "alhaitham-coder" ]]; then
+  echo "ASSERT FAILED: reassigned agent not persisted" >&2
+  cat "$out" >&2
+  exit 1
+fi
+if ! sqlite3 "$DB" "SELECT result_payload_json FROM tasks WHERE task_id='$TEMP_TASK';" | grep -q 'executor_reassignment'; then
+  echo "ASSERT FAILED: reassignment provenance missing from result_payload_json" >&2
+  cat "$out" >&2
+  exit 1
+fi
+cleanup_temp
+
+printf '\n== thread evidence verifier fixtures ==\n'
+VERIFY="$ROOT/skills/discord-visible-multiagent/scripts/hq-thread-evidence-verify.sh"
+python3 - <<'PY'
+import os, sqlite3
+p=os.path.expanduser('~/.openclaw/workspace/shared/task/state/tasks.db')
+conn=sqlite3.connect(p)
+conn.row_factory=sqlite3.Row
+cur=conn.cursor()
+cur.execute("SELECT * FROM tasks WHERE task_id='TASK-20260416-028'")
+row=cur.fetchone()
+if row is None:
+    raise SystemExit('source task not found')
+cols=[r[1] for r in cur.execute('PRAGMA table_info(tasks)').fetchall()]
+data={c: row[c] for c in cols}
+data['task_id']='TASK-TEST-RUNTIME-TRUTH-REGRESSION'
+data['status']='ACTIVE'
+data['thread_id']='222222222222222222'
+data['executor_agent']='alhaitham-coder'
+data['executor_session_key']='agent:alhaitham-coder:discord:channel:666666666666666666'
+data['current_round']=1
+cur.execute("DELETE FROM tasks WHERE task_id=?", (data['task_id'],))
+cur.execute(f"INSERT INTO tasks ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [data[c] for c in cols])
+conn.commit()
+conn.close()
+PY
+cat >"$TMPDIR/thread-ok.json" <<'JSON'
+{
+  "messages": [
+    {"id":"m-result","content":"## [R1] 执行结果\n**任务ID**：TASK-TEST-RUNTIME-TRUTH-REGRESSION\nPASS","author":{"username":"alhaitham","id":"bot-a"},"timestamp":"2026-05-14T04:00:00+08:00"},
+    {"id":"m-notify","content":"[TASK-TEST-RUNTIME-TRUTH-REGRESSION][R1] 本轮已完成，请读取 thread 现场结果并决定下一轮。","author":{"username":"alhaitham","id":"bot-a"},"timestamp":"2026-05-14T04:01:00+08:00"}
+  ]
+}
+JSON
+out="$TMPDIR/evidence-ok.json"
+bash "$VERIFY" --task-id "$TEMP_TASK" --result-message-id m-result --notify-message-id m-notify --thread-json-file "$TMPDIR/thread-ok.json" >"$out"
+assert_json_field "$out" "ok" "True"
+cat >"$TMPDIR/thread-bad.json" <<'JSON'
+{
+  "messages": [
+    {"id":"m-result","content":"result","author":{"username":"paimon-chief"},"timestamp":"2026-05-14T04:00:00+08:00"},
+    {"id":"m-notify","content":"done","author":{"username":"paimon-chief"},"timestamp":"2026-05-14T03:59:00+08:00"}
+  ]
+}
+JSON
+out="$(run_expect_fail_json evidence_bad 5 bash "$VERIFY" --task-id "$TEMP_TASK" --result-message-id m-result --notify-message-id m-notify --thread-json-file "$TMPDIR/thread-bad.json")"
+assert_contains "$out" 'result_author_mismatch'
+assert_contains "$out" 'notify_author_mismatch'
+assert_contains "$out" 'notify_shape_unrecognized'
 cleanup_temp
 
 printf '\nAll runtime truth regression checks passed.\n'

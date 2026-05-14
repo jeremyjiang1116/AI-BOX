@@ -1,6 +1,6 @@
 # Skill Boundaries (v4)
 
-Canonical source: `<OPENCLAW_SHARED>/artifacts/discord-visible-multiagent/references/boundaries.md`
+Canonical source: `$HOME/.openclaw/shared/artifacts/discord-visible-multiagent/references/boundaries.md`
 Workspace supplements:
 - `docs/workflows/task-state-discord-integration.md`
 - `docs/workflows/task-state-mvp-v1.md`

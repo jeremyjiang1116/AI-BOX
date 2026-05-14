@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
-STATE_DIR="${TASK_STATE_DIR:-$WORKSPACE_ROOT/shared/task/state}"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+STATE_DIR="$WORKSPACE_ROOT/shared/task/state"
 DB_PATH="${TASK_DB_PATH:-$STATE_DIR/tasks.db}"
 READY_HELPER="$SCRIPT_DIR/hq-collab-handoff-ready.sh"
 
@@ -49,7 +49,7 @@ escaped_task_id="$(printf "%s" "$TASK_ID" | sed "s/'/''/g")"
 row="$(sqlite3 -json "$DB_PATH" "SELECT task_id, executor_agent, executor_session_key, thread_id, hq_message_id, current_round, result_summary, result_payload_json FROM tasks WHERE task_id = '$escaped_task_id';")"
 [[ -n "$row" ]] || row='[]'
 
-READY_JSON="$ready_json" ROW_JSON="$row" SCRIPT_DIR="$SCRIPT_DIR" python3 -c '
+READY_JSON="$ready_json" ROW_JSON="$row" python3 -c '
 import json, os, sys
 from pathlib import Path
 ready = json.loads(os.environ["READY_JSON"])
@@ -106,27 +106,70 @@ if not visible_output_contract or not visible_round_instruction or not visible_r
     }, ensure_ascii=False, indent=2))
     sys.exit(6)
 
-import importlib.util
-helper_path = Path(os.environ["SCRIPT_DIR"]) / "account-binding-lib.py"
-spec = importlib.util.spec_from_file_location("account_binding_lib", helper_path)
-account_binding_lib = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(account_binding_lib)
-binding = account_binding_lib.discover_account_binding(executor_agent)
-if not binding.get("ok"):
-    out = {
+sessions_root = Path(os.environ.get("OPENCLAW_AGENTS_ROOT", str(Path.home() / ".openclaw/agents")))
+sessions_path = sessions_root / executor_agent / "sessions/sessions.json"
+executor_account = ""
+account_evidence = []
+if sessions_path.exists():
+    try:
+        sessions_obj = json.loads(sessions_path.read_text())
+        candidates = []
+        for session_key, meta in sessions_obj.items():
+            if not isinstance(meta, dict):
+                continue
+            origin = meta.get("origin") or {}
+            delivery = meta.get("deliveryContext") or {}
+            for label, value in [
+                ("origin.accountId", origin.get("accountId")),
+                ("deliveryContext.accountId", delivery.get("accountId")),
+                ("lastAccountId", meta.get("lastAccountId")),
+            ]:
+                if value:
+                    candidates.append((label, value, session_key))
+        values = [v for _, v, _ in candidates]
+        uniq = sorted(set(values))
+        if len(uniq) == 1:
+            executor_account = uniq[0]
+            account_evidence = [
+                {"source": label, "value": value, "sessionKey": session_key}
+                for label, value, session_key in candidates if value == executor_account
+            ]
+        elif len(uniq) > 1:
+            print(json.dumps({
+                "task_id": task_id,
+                "handoff_allowed": False,
+                "error": "executor_account_binding_ambiguous",
+                "executor_agent": executor_agent,
+                "candidate_accounts": uniq,
+                "evidence": [
+                    {"source": label, "value": value, "sessionKey": session_key}
+                    for label, value, session_key in candidates
+                ]
+            }, ensure_ascii=False, indent=2))
+            sys.exit(5)
+    except Exception as e:
+        print(json.dumps({
+            "task_id": task_id,
+            "handoff_allowed": False,
+            "error": "executor_sessions_parse_failed",
+            "executor_agent": executor_agent,
+            "evidence": str(e),
+            "sessions_path": str(sessions_path),
+        }, ensure_ascii=False, indent=2))
+        sys.exit(5)
+
+if not executor_account:
+    print(json.dumps({
         "task_id": task_id,
         "handoff_allowed": False,
-        "error": binding.get("error") or "executor_account_binding_failed",
+        "error": "executor_account_binding_missing",
         "executor_agent": executor_agent,
-        "evidence": binding.get("evidence"),
-    }
-    if binding.get("candidate_accounts"):
-        out["candidate_accounts"] = binding.get("candidate_accounts")
-    print(json.dumps(out, ensure_ascii=False, indent=2))
+        "evidence": {
+            "sessions_path": str(sessions_path),
+            "exists": sessions_path.exists(),
+        }
+    }, ensure_ascii=False, indent=2))
     sys.exit(5)
-executor_account = binding["account_id"]
-account_evidence = binding.get("evidence") or []
-sessions_source = binding.get("source")
 
 blocked_notify_body = f"[{task_id}][R{round_no}] BLOCKED: cannot_post_to_thread"
 blocked_reason_example = "reason: <最直接失败原因>"
@@ -279,7 +322,7 @@ out = {
         "agent_id": executor_agent,
         "account_id": executor_account,
         "evidence": account_evidence,
-        "source": sessions_source,
+        "source": str(sessions_path),
     },
     "executor_preflight": {
         "ownership_gate_helper": "skills/discord-visible-multiagent/scripts/executor-ownership-gate.sh",

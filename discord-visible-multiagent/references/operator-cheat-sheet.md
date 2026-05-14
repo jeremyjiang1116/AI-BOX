@@ -38,6 +38,7 @@ What it does:
 ### 4. Review / advance / accept / close
 Use:
 - `scripts/hq-followup-close-helper.sh`
+- `scripts/hq-thread-evidence-verify.sh` when result/notify message IDs are available and provenance must be checked
 - `references/review-guide.md` when the decision is not obvious
 
 Entry condition:
@@ -48,6 +49,18 @@ What it does:
 - generates the next-round / accept / blocked / review / failed / capped draft
 - writes task-state changes back
 - internally enforces notify-closure validation for `advance|accept|blocked|review|failed`
+
+### Side path: switch executor for the next/current round
+Use only after HQ has already posted the new visible current-round instruction in the task thread:
+- `scripts/hq-reassign-executor.sh`
+
+What it does:
+- backs up `tasks.db`
+- verifies the new executor session binding
+- updates executor/session/HQ message anchor/optional round
+- records `executor_reassigned` provenance
+
+Then resume the normal handoff chain: helper payload → send plan → runtime `sessions_send` → `record-runtime-send.sh --kind executor_handoff`.
 
 ## Executor only: 1 primary ownership gate
 Read first for return semantics:
@@ -70,7 +83,7 @@ What it blocks:
 5. `hq-handoff-send-plan.sh`
 6. runtime performs `sessions_send`
 7. `record-runtime-send.sh --kind executor_handoff`
-8. later, `hq-followup-close-helper.sh`
+8. later, optionally `hq-thread-evidence-verify.sh`, then `hq-followup-close-helper.sh`
 
 ## Minimum executor return sequence
 1. receive formal handoff and confirm `task_id` / round / `thread_id` / `hq_message_id` / executor account

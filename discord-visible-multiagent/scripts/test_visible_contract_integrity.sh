@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-WORKSPACE_ROOT="${OPENCLAW_WORKSPACE_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
-STATE_DIR="${TASK_STATE_DIR:-$WORKSPACE_ROOT/shared/task/state}"
-DB="${TASK_DB_PATH:-$STATE_DIR/tasks.db}"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+DB="$ROOT/shared/task/state/tasks.db"
 TMPDIR="$(mktemp -d)"
 SOURCE_TASK="TASK-20260416-028"
 TEST_TASK="TASK-TEST-VISIBLE-CONTRACT-001"

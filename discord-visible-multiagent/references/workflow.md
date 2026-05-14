@@ -1,6 +1,6 @@
 # Workflow (v5) — Discord Visible Multi-Agent Overview
 
-Canonical workflow source: `<OPENCLAW_SHARED>/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
+Canonical workflow source: `$HOME/.openclaw/shared/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
 Workspace task-state supplements:
 - `docs/workflows/task-state-discord-integration.md`
 - `docs/workflows/task-state-mvp-v1.md`

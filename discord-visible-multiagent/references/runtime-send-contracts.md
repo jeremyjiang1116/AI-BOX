@@ -1,7 +1,7 @@
 # Runtime Send Contracts (workspace authority)
 
 Canonical collaboration law remains:
-- `<OPENCLAW_SHARED>/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
+- `$HOME/.openclaw/shared/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
 
 This file is **not** the collaboration law layer.
 This file is the **workspace runtime execution contract** for actual send shapes on this machine.

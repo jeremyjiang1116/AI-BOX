@@ -1,6 +1,6 @@
 # Review Guide (v4 — Acceptance + Runtime Truth)
 
-Canonical source: `<OPENCLAW_SHARED>/artifacts/discord-visible-multiagent/references/review-guide.md`
+Canonical source: `$HOME/.openclaw/shared/artifacts/discord-visible-multiagent/references/review-guide.md`
 Workspace supplements:
 - `docs/workflows/task-state-mvp-v1.md`
 - `docs/workflows/runtime-send-writeback.md`

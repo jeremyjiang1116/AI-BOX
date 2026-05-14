@@ -1,10 +1,10 @@
 # Executor Workflow (v1) — Discord Visible Multi-Agent Executor Path
 
 Canonical collaboration law:
-- `<OPENCLAW_SHARED>/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
+- `$HOME/.openclaw/shared/tasks/TASK-TRUE-MULTIROUND-WORKFLOW.md`
 
 Workspace execution gate:
-- `<WORKSPACE>/skills/discord-visible-multiagent/SKILL.md`
+- `$HOME/.openclaw/workspace/skills/discord-visible-multiagent/SKILL.md`
 
 Single formal return contract:
 - `references/executor-return-contract.md`

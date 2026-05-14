@@ -76,6 +76,22 @@ Important:
   - 艾尔海森: `openclaw message send --channel discord --account alhaitham --target channel:<thread_id> --message ...`
 - HQ or another executor must not substitute for the assigned executor on executor-owned sends
 
+## Mid-task executor reassignment
+Use when:
+- HQ has already posted the new current-round visible instruction in the tracked task thread
+- the next round must switch to a different executor before formal handoff
+- task-state must preserve backup, provenance, executor/session binding, and the new HQ message anchor
+
+Helper:
+- `skills/discord-visible-multiagent/scripts/hq-reassign-executor.sh`
+
+Important:
+- this helper does not post the visible instruction and does not send the handoff
+- use it only after the new visible current-round instruction is already in the task thread
+- it backs up `tasks.db`, verifies the new executor session binding, updates `executor_agent` / `executor_session_key` / `hq_message_id` / optional round, appends `executor_reassignment` provenance, and writes a `task_events.event_type=executor_reassigned` entry
+- after reassignment, continue with the normal handoff chain: `hq-executor-handoff-helper.sh` → `hq-handoff-send-plan.sh` → runtime `sessions_send` → `record-runtime-send.sh --kind executor_handoff`
+- do not use ad hoc SQLite edits for executor switches now that this helper exists
+
 ## Standard formal dispatch chain (HQ-only, recommended)
 Use this exact order for a new HQ-tracked formal collaboration task:
 
@@ -133,6 +149,27 @@ Important:
 - use `capped` only at R15
 - notify closure validation is now embedded as a hard requirement inside `hq-followup-close-helper.sh` for `advance|accept|blocked|review|failed`
 
+## Thread evidence verification before HQ accepts / advances
+Use when:
+- HQ has result and notify message IDs and needs a concrete evidence check before accept / advance / close
+- author/account provenance matters
+- you need to prove result-before-notify and fixed notify shape from a saved or live thread read
+
+Helper:
+- `skills/discord-visible-multiagent/scripts/hq-thread-evidence-verify.sh`
+
+Inputs:
+- `--task-id <TASK-ID>`
+- `--result-message-id <MESSAGE_ID>`
+- `--notify-message-id <MESSAGE_ID>`
+- one of `--thread-json-file <PATH>` or `--read-live`
+
+Important:
+- `--thread-json-file` is best for deterministic regression or archived evidence
+- `--read-live` reads the tracked thread via the executor-bound account discovered from session metadata, unless `--executor-account` is provided
+- failure exits non-zero and reports violations such as `result_author_mismatch`, `notify_author_mismatch`, `notify_prefix_mismatch`, `notify_shape_unrecognized`, or `result_after_notify`
+- this verifier complements, but does not replace, HQ's content-quality review
+
 ## State model quick reference
 Use when:
 - you need the current practical task-state values without re-reading the longer integration docs
@@ -157,6 +194,8 @@ Use when:
 - task-state gates changed
 - notify validation changed
 - ownership/account binding logic changed
+- executor reassignment logic changed
+- thread evidence verification changed
 - handoff planning / send-shape validation changed
 - visible-contract payload construction changed
 
@@ -219,6 +258,7 @@ Typical kinds:
 - `hq_sync`
 - `executor_reminder`
 - `executor_handoff`
+- `executor_handoff_preflight` (evidence only; never proof that the real handoff was sent)
 
 ## Executor-side operational note
 This helper map is mostly HQ-facing because the current maintained script chain is HQ-owned.
@@ -236,6 +276,8 @@ Executor should not re-derive HQ helper order from this file.
 - **“执行 visible dispatch（建 thread + 发 R1 + 回写 ACTIVE）”** → `hq-visible-dispatch-run.sh`
 - **“检查现在能不能 handoff”** → `hq-collab-handoff-ready.sh`
 - **“拿正式 handoff payload”** → `hq-executor-handoff-helper.sh`
+- **“中途切换 executor”** → `hq-reassign-executor.sh` after the new visible instruction is already posted
+- **“验 result/notify 是否真在 thread 且作者正确”** → `hq-thread-evidence-verify.sh`
 - **“查哪些任务到期了”** → `hq-due-task-checker.sh`
 - **“生成 HQ 同步草稿”** → `hq-sync-draft-helper.sh`
 - **“催 executor”** → `executor-reminder-helper.sh`
