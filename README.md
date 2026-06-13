@@ -11,6 +11,7 @@ This repository is intended to be an index and distribution home for skills. Eac
 | [`web-research/`](./web-research/) | Web research and search routing | Routes general search, Chinese web/WeChat discovery, fact checking, GitHub/source lookup, and known-URL handoff. |
 | [`web-scrape/`](./web-scrape/) | Readable content extraction from URLs | Fetches and extracts pages, supports site strategies, Playwright fallback, and WeChat official account articles. |
 | [`discord-visible-multiagent/`](./discord-visible-multiagent/) | Visible Discord multi-agent workflow | Coordinates HQ/executor collaboration with round labels, review loops, and fallback handling. |
+| [`memory-keeper/`](./memory-keeper/) | Durable memory governance | Classifies and maintains long-term memory layers such as `AGENTS.md`, `MEMORY.md`, `USER.md`, `SOUL.md`, `.learnings/`, daily memory, and `SESSION-STATE.md`. |
 
 ## Repository layout
 
@@ -24,9 +25,12 @@ AI-BOX/
 │   ├── SKILL.md
 │   ├── scripts/
 │   └── references/
-└── discord-visible-multiagent/
+├── discord-visible-multiagent/
+│   ├── SKILL.md
+│   ├── scripts/
+│   └── references/
+└── memory-keeper/
     ├── SKILL.md
-    ├── scripts/
     └── references/
 ```
 
@@ -79,6 +83,12 @@ It supports static HTML fetch, mobile fallback, Playwright-rendered pages, site-
 Use this when a task needs visible, reviewable, multi-round collaboration across Discord channels or threads.
 
 The root README intentionally does not duplicate the full workflow. See [`discord-visible-multiagent/SKILL.md`](./discord-visible-multiagent/SKILL.md) and its `references/` directory for the complete process.
+
+### `memory-keeper`
+
+Use this when a task needs durable memory classification, long-term file updates, memory-layer cleanup, or governance for `AGENTS.md`, `MEMORY.md`, `USER.md`, `SOUL.md`, `.learnings/`, daily memory, or `SESSION-STATE.md`.
+
+The skill emphasizes classify-before-write, read-before-write, merge-over-append, correct layer ownership, and approval-first edits for long-term memory files.
 
 ## Maintenance notes
 
